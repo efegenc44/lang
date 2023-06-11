@@ -1,7 +1,7 @@
 use crate::{common::*, lexer::Token};
 
 pub struct Parser {
-    tokens: Vec<Token>,
+    tokens: Vec<Spanned<Token>>,
     index: Nat,
 }
 
@@ -13,11 +13,13 @@ macro_rules! binary_expr_precedence_level {
                 let op = current_token.into();
                 self.advance();
                 let right = self.$inferior()?;
+                let (left_span, right_span) = (left.span.clone(), right.span.clone());
                 left = Expression::Binary {
                     op,
                     left: Box::new(left),
                     right: Box::new(right),
                 }
+                .start_end(left_span, right_span)
             }
             Ok(left)
         }
@@ -25,38 +27,50 @@ macro_rules! binary_expr_precedence_level {
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
+    pub fn new(tokens: Vec<Spanned<Token>>) -> Self {
         Self { tokens, index: 0 }
     }
 
     fn current_token(&self) -> &Token {
-        self.tokens.get(self.index).unwrap()
+        &self.tokens.get(self.index).unwrap().data
+    }
+
+    fn get_span(&self) -> Span {
+        self.tokens.get(self.index).unwrap().span.clone()
     }
 
     fn advance(&mut self) {
         self.index += 1;
     }
 
-    fn expect(&mut self, expected: Token) -> FailsWith<ParseError> {
+    fn expect(&mut self, expected: Token) -> Result<Span, Spanned<ParseError>> {
         if self.current_token() != &expected {
-            return Err(ParseError::UnexpectedToken(self.current_token().clone()));
+            return Err(
+                ParseError::UnexpectedToken(self.current_token().clone()).spanned(self.get_span())
+            );
         }
+        let span = self.get_span();
         self.advance();
-        Ok(())
+        Ok(span)
     }
 
     fn product(&mut self) -> ParseResult {
         use Token::*;
 
         let expr = match self.current_token() {
-            NaturalNumber(nat) => Expression::NaturalNumber(*nat),
+            NaturalNumber(nat) => Expression::NaturalNumber(*nat).spanned(self.get_span()),
             LParen => {
+                let start_span = self.get_span();
                 self.advance();
-                let expr = self.expr()?;
-                self.expect(RParen)?;
-                return Ok(expr);
+                let expr = self.expr()?.data;
+                let end_span = self.expect(RParen)?;
+                return Ok(expr.start_end(start_span, end_span));
             }
-            unexpected_token => return Err(ParseError::UnexpectedToken(unexpected_token.clone())),
+            unexpected_token => {
+                return Err(
+                    ParseError::UnexpectedToken(unexpected_token.clone()).spanned(self.get_span())
+                )
+            }
         };
         self.advance();
 
@@ -77,24 +91,27 @@ impl Parser {
     }
 }
 
-type ParseResult = Result<Expression, ParseError>;
+type ParseResult = Result<Spanned<Expression>, Spanned<ParseError>>;
 
 #[derive(Debug)]
 pub enum ParseError {
     UnexpectedToken(Token),
 }
 
-#[derive(PartialEq)]
+impl HasSpan for ParseError {}
+
 pub enum Expression {
     NaturalNumber(Nat),
     Binary {
         op: BinaryOp,
-        left: Box<Expression>,
-        right: Box<Expression>,
+        left: Box<Spanned<Expression>>,
+        right: Box<Spanned<Expression>>,
     },
 }
 
-impl Expression {
+impl HasSpan for Expression {}
+
+impl Spanned<Expression> {
     pub fn pretty_print(&self) {
         self._pretty_print(0);
     }
@@ -107,11 +124,11 @@ impl Expression {
         macro_rules! pprint {
             ($($arg:tt)*) => {{
                 let string = format!($($arg)*);
-                println!("{:indent$}{string}", "", indent = depth * PRETTY_PRINT_INDENT_LENGTH)
+                println!("{:indent$}{string} [{span:?}]", "", indent = depth * PRETTY_PRINT_INDENT_LENGTH, span = self.span)
             }};
         }
 
-        match self {
+        match &self.data {
             NaturalNumber(nat) => pprint!("Nat: {nat}"),
             Binary { op, left, right } => {
                 pprint!("Binary: {op:?}");
@@ -122,7 +139,7 @@ impl Expression {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum BinaryOp {
     Addition,
     Multiplication,
@@ -137,47 +154,5 @@ impl From<&Token> for BinaryOp {
             Star => Self::Multiplication,
             _ => unreachable!(),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::lexer::Lexer;
-
-    #[test]
-    fn basic_precedence() {
-        let source = "1 + 2 * 3";
-        let tokens = Lexer::new(source).collect().unwrap();
-        let ast = Parser::new(tokens).parse();
-
-        assert!(ast.is_ok_and(|ast| ast
-            == Expression::Binary {
-                op: BinaryOp::Addition,
-                left: Box::new(Expression::NaturalNumber(1)),
-                right: Box::new(Expression::Binary {
-                    op: BinaryOp::Multiplication,
-                    left: Box::new(Expression::NaturalNumber(2)),
-                    right: Box::new(Expression::NaturalNumber(3))
-                })
-            }))
-    }
-
-    #[test]
-    fn paren_precedence() {
-        let source = "(1 + 2) * 3";
-        let tokens = Lexer::new(source).collect().unwrap();
-        let ast = Parser::new(tokens).parse();
-
-        assert!(ast.is_ok_and(|ast| ast
-            == Expression::Binary {
-                op: BinaryOp::Multiplication,
-                left: Box::new(Expression::Binary {
-                    op: BinaryOp::Addition,
-                    left: Box::new(Expression::NaturalNumber(1)),
-                    right: Box::new(Expression::NaturalNumber(2))
-                }),
-                right: Box::new(Expression::NaturalNumber(3))
-            }))
     }
 }

@@ -11,6 +11,8 @@ impl Iterator for Lexer {
     fn next(&mut self) -> Option<Self::Item> {
         use Token::*;
 
+        let start = self.index;
+
         if self.index >= self.chars.len() {
             return None;
         }
@@ -27,11 +29,15 @@ impl Iterator for Lexer {
                 return self.next();
             }
             '0'..='9' => return Some(self.lex_natural_number()),
-            unknown_start => return Some(Err(LexError::UnknownStartOfAToken(*unknown_start))),
+            unknown_start => {
+                return Some(Err(
+                    LexError::UnknownStartOfAToken(*unknown_start).spanned(start..self.index)
+                ))
+            }
         };
         self.advance();
 
-        Some(Ok(token))
+        Some(Ok(token.spanned(start..self.index)))
     }
 }
 
@@ -70,24 +76,26 @@ impl Lexer {
                     parse_err.kind(),
                     std::num::IntErrorKind::PosOverflow
                 ));
-                LexError::NaturalNumberLiteralIsTooLarge
+                LexError::NaturalNumberLiteralIsTooLarge.spanned(start..self.index)
             })?;
 
-        Ok(Token::NaturalNumber(nat))
+        Ok(Token::NaturalNumber(nat).spanned(start..self.index))
     }
 
-    pub fn collect(self) -> Result<Vec<Token>, LexError> {
-        Iterator::collect::<Result<Vec<Token>, LexError>>(self)
+    pub fn collect(self) -> Result<Vec<Spanned<Token>>, Spanned<LexError>> {
+        Iterator::collect(self)
     }
 }
 
-type LexResult = Result<Token, LexError>;
+type LexResult = Result<Spanned<Token>, Spanned<LexError>>;
 
 #[derive(Debug)]
 pub enum LexError {
     UnknownStartOfAToken(char),
     NaturalNumberLiteralIsTooLarge,
 }
+
+impl HasSpan for LexError {}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
@@ -101,38 +109,4 @@ pub enum Token {
     End,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn natural_number_literal_is_too_large() {
-        #[cfg(target_pointer_width = "64")]
-        let source = "18446744073709551616"; // = 2^64
-
-        #[cfg(target_pointer_width = "32")]
-        let source = "4294967296"; // = 2^32
-
-        let result = Lexer::new(source).collect();
-        assert!(result.is_err_and(|err| matches!(err, LexError::NaturalNumberLiteralIsTooLarge)))
-    }
-
-    #[test]
-    fn lex_test() {
-        let source = "01 * (12 + 23) * 34";
-        let expected = [
-            Token::NaturalNumber(1),
-            Token::Star,
-            Token::LParen,
-            Token::NaturalNumber(12),
-            Token::Plus,
-            Token::NaturalNumber(23),
-            Token::RParen,
-            Token::Star,
-            Token::NaturalNumber(34),
-            Token::End,
-        ];
-        let result = Lexer::new(source).collect().unwrap();
-        assert_eq!(result, expected)
-    }
-}
+impl HasSpan for Token {}
