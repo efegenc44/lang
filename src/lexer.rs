@@ -28,7 +28,7 @@ impl Iterator for Lexer {
                 self.advance();
                 return self.next();
             }
-            '0'..='9' => return Some(self.lex_natural_number()),
+            '0'..='9' => return Some(self.lex_number()),
             unknown_start => {
                 return Some(Err(
                     LexError::UnknownStartOfAToken(*unknown_start).spanned(start..self.index)
@@ -59,27 +59,40 @@ impl Lexer {
         self.index += 1;
     }
 
-    fn lex_natural_number(&mut self) -> LexResult {
+    fn advance_if(&mut self, expected: char) -> bool {
+        let res = self.current_char() == &expected;
+        if res {
+            self.advance();
+        }
+        res
+    }
+
+    fn lex_number(&mut self) -> LexResult {
         let start = self.index;
 
         while let '0'..='9' = self.current_char() {
             self.advance();
         }
 
-        let nat = self.chars[start..self.index]
-            .iter()
-            .collect::<String>()
-            .parse::<Nat>()
-            .map_err(|parse_err| {
-                // Other errors should not be able to happen
-                assert!(matches!(
-                    parse_err.kind(),
-                    std::num::IntErrorKind::PosOverflow
-                ));
-                LexError::NaturalNumberLiteralIsTooLarge.spanned(start..self.index)
-            })?;
+        let mut is_real = false;
+        if self.advance_if('.') {
+            is_real = true;
+            while let '0'..='9' = self.current_char() {
+                self.advance();
+            }
+        }
 
-        Ok(Token::NaturalNumber(nat).spanned(start..self.index))
+        let number = self.chars[start..self.index].iter().collect::<String>();
+        Ok(match is_real {
+            // Our Real Number literal has the same grammar as of Rust, so no problem when parsing
+            true => Token::RealNumber(number.parse().unwrap()),
+            false => Token::NaturalNumber(number.parse::<Nat>().map_err(|parse_err| {
+                // Other errors should not be able to happen
+                debug_assert_eq!(parse_err.kind(), &std::num::IntErrorKind::PosOverflow);
+                LexError::NaturalNumberLiteralIsTooLarge.spanned(start..self.index)
+            })?),
+        }
+        .spanned(start..self.index))
     }
 
     pub fn collect(self) -> Result<Vec<Spanned<Token>>, Spanned<LexError>> {
@@ -100,6 +113,7 @@ impl HasSpan for LexError {}
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     NaturalNumber(Nat),
+    RealNumber(Real),
     Plus,
     Star,
 

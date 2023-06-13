@@ -1,6 +1,11 @@
 pub type Nat = usize;
 pub type Span = std::ops::Range<Nat>;
 
+#[cfg(target_pointer_width = "64")]
+pub type Real = f64;
+#[cfg(target_pointer_width = "32")]
+pub type Real = f32;
+
 #[derive(Debug)]
 pub struct Spanned<Data> {
     pub data: Data,

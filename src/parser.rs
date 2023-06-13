@@ -45,9 +45,11 @@ impl Parser {
 
     fn expect(&mut self, expected: Token) -> Result<Span, Spanned<ParseError>> {
         if self.current_token() != &expected {
-            return Err(
-                ParseError::UnexpectedToken(self.current_token().clone()).spanned(self.get_span())
-            );
+            return Err(ParseError::ExpectedADifferentToken {
+                found: self.current_token().clone(),
+                expected,
+            }
+            .spanned(self.get_span()));
         }
         let span = self.get_span();
         self.advance();
@@ -57,18 +59,20 @@ impl Parser {
     fn product(&mut self) -> ParseResult {
         use Token::*;
 
+        let current_token_span = self.get_span();
         let expr = match self.current_token() {
-            NaturalNumber(nat) => Expression::NaturalNumber(*nat).spanned(self.get_span()),
+            NaturalNumber(nat) => Expression::NaturalNumber(*nat).spanned(current_token_span),
+            RealNumber(real) => Expression::RealNumber(*real).spanned(current_token_span),
             LParen => {
-                let start_span = self.get_span();
                 self.advance();
                 let expr = self.expr()?.data;
                 let end_span = self.expect(RParen)?;
-                return Ok(expr.start_end(start_span, end_span));
+                return Ok(expr.start_end(current_token_span, end_span));
             }
             unexpected_token => {
                 return Err(
-                    ParseError::UnexpectedToken(unexpected_token.clone()).spanned(self.get_span())
+                    ParseError::UnknownStartOfAnExpression(unexpected_token.clone())
+                        .spanned(current_token_span),
                 )
             }
         };
@@ -95,13 +99,15 @@ type ParseResult = Result<Spanned<Expression>, Spanned<ParseError>>;
 
 #[derive(Debug)]
 pub enum ParseError {
-    UnexpectedToken(Token),
+    UnknownStartOfAnExpression(Token),
+    ExpectedADifferentToken { found: Token, expected: Token },
 }
 
 impl HasSpan for ParseError {}
 
 pub enum Expression {
     NaturalNumber(Nat),
+    RealNumber(Real),
     Binary {
         op: BinaryOp,
         left: Box<Spanned<Expression>>,
@@ -130,6 +136,7 @@ impl Spanned<Expression> {
 
         match &self.data {
             NaturalNumber(nat) => pprint!("Nat: {nat}"),
+            RealNumber(real) => pprint!("Real: {real}"),
             Binary { op, left, right } => {
                 pprint!("Binary: {op:?}");
                 left._pretty_print(depth + 1);
