@@ -82,15 +82,14 @@ impl Lexer {
             }
         }
 
-        let number = self.chars[start..self.index].iter().collect::<String>();
+        let number = self.chars[start..self.index]
+            .iter()
+            .collect::<String>()
+            .into_boxed_str();
+
         Ok(match is_real {
-            // Our Real Number literal has the same grammar as of Rust, so no problem when parsing
-            true => Token::RealNumber(number.parse().unwrap()),
-            false => Token::NaturalNumber(number.parse::<Nat>().map_err(|parse_err| {
-                // Other errors should not be able to happen
-                debug_assert_eq!(parse_err.kind(), &std::num::IntErrorKind::PosOverflow);
-                LexError::NaturalNumberLiteralIsTooLarge.spanned(start..self.index)
-            })?),
+            true => Token::RealNumber(number),
+            false => Token::NaturalNumber(number),
         }
         .spanned(start..self.index))
     }
@@ -105,15 +104,14 @@ type LexResult = Result<Spanned<Token>, Spanned<LexError>>;
 #[derive(Debug)]
 pub enum LexError {
     UnknownStartOfAToken(char),
-    NaturalNumberLiteralIsTooLarge,
 }
 
 impl HasSpan for LexError {}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
-    NaturalNumber(Nat),
-    RealNumber(Real),
+    NaturalNumber(Symbol),
+    RealNumber(Symbol),
     Plus,
     Star,
 

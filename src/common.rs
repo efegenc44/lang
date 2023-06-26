@@ -1,5 +1,6 @@
 pub type Nat = usize;
 pub type Span = std::ops::Range<Nat>;
+pub type Symbol = Box<str>;
 
 #[cfg(target_pointer_width = "64")]
 pub type Real = f64;

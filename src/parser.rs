@@ -61,8 +61,10 @@ impl Parser {
 
         let current_token_span = self.get_span();
         let expr = match self.current_token() {
-            NaturalNumber(nat) => Expression::NaturalNumber(*nat).spanned(current_token_span),
-            RealNumber(real) => Expression::RealNumber(*real).spanned(current_token_span),
+            NaturalNumber(nat) => {
+                Expression::NaturalNumber(nat.clone()).spanned(current_token_span)
+            }
+            RealNumber(real) => Expression::RealNumber(real.clone()).spanned(current_token_span),
             LParen => {
                 self.advance();
                 let expr = self.expr()?.data;
@@ -106,8 +108,8 @@ pub enum ParseError {
 impl HasSpan for ParseError {}
 
 pub enum Expression {
-    NaturalNumber(Nat),
-    RealNumber(Real),
+    NaturalNumber(Symbol),
+    RealNumber(Symbol),
     Binary {
         op: BinaryOp,
         left: Box<Spanned<Expression>>,
