@@ -69,6 +69,7 @@ impl TypeCheker {
             Negation => Ok(match otype {
                 Type::Natural | Type::Integer => Type::Integer,
                 Type::Real => Type::Real,
+                #[allow(unreachable_patterns)]
                 _ => {
                     return Err(
                         TypeCheckError::ExpectedNumericType(otype).spanned(operand.span.clone())

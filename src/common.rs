@@ -1,4 +1,5 @@
 pub type Nat = usize;
+pub type Int = isize;
 pub type Span = std::ops::Range<Nat>;
 pub type Symbol = Box<str>;
 

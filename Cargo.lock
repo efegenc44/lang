@@ -3,5 +3,13 @@
 version = 3
 
 [[package]]
+name = "apnum"
+version = "0.1.0"
+source = "git+https://github.com/efegenc44/apnum.git#159d36de7cf4ab70d2c56d7dd82bbe80694360db"
+
+[[package]]
 name = "lang"
 version = "0.1.0"
+dependencies = [
+ "apnum",
+]
