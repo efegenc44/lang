@@ -8,10 +8,11 @@ use parser::Parser;
 use typechecker::TypeCheker;
 
 fn main() {
-    let source = "01.3 * (12 + 23) * 34";
+    let source = "367 / 55";
     let tokens = Lexer::new(source).collect().unwrap();
     let ast = Parser::new(tokens).parse().unwrap();
     let ty = TypeCheker::new().verify_type(&ast).unwrap();
-    println!("Type of Expression: {ty:?}");
-    ast.pretty_print()
+    println!("\nType of Expression: {ty:?}");
+    ast.pretty_print();
+    println!();
 }

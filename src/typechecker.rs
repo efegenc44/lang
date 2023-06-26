@@ -1,6 +1,6 @@
 use crate::{
     common::*,
-    parser::{BinaryOp, Expression},
+    parser::{BinaryOp, Expression, UnaryOp},
 };
 
 pub struct TypeCheker {}
@@ -17,6 +17,7 @@ impl TypeCheker {
             NaturalNumber(_) => Type::Natural,
             RealNumber(_) => Type::Real,
             Binary { op, left, right } => self.verify_binary_op(op, left, right)?,
+            Unary { op, operand } => self.verify_unary_op(op, operand)?,
         })
     }
 
@@ -32,7 +33,7 @@ impl TypeCheker {
         let rtype = self.verify_type(right)?;
 
         match op {
-            Addition | Multiplication => {
+            Addition | Multiplication | Subtraction | Division => {
                 let true = ltype.is_numeric() else {
                     return Err(TypeCheckError::ExpectedNumericType(ltype).spanned(left.span.clone()));
                 };
@@ -41,17 +42,39 @@ impl TypeCheker {
                     return Err(TypeCheckError::ExpectedNumericType(rtype).spanned(right.span.clone()));
                 };
 
+                // Subtyping relation between numeric types is total.
                 let super_type = if ltype.is_subtype_of(&rtype) {
                     rtype
-                } else if rtype.is_subtype_of(&ltype) {
-                    ltype
                 } else {
-                    // Subtyping relation between numeric types is total.
-                    unreachable!();
+                    ltype
                 };
 
-                Ok(super_type)
+                Ok(if let Subtraction = op {
+                    super_type.minimum_type(Type::Integer)
+                } else if let Division = op {
+                    super_type.minimum_type(Type::Real)
+                } else {
+                    super_type
+                })
             }
+        }
+    }
+
+    fn verify_unary_op(&self, op: &UnaryOp, operand: &Spanned<Expression>) -> TypeCheckResult {
+        use UnaryOp::*;
+
+        let otype = self.verify_type(operand)?;
+
+        match op {
+            Negation => Ok(match otype {
+                Type::Natural | Type::Integer => Type::Integer,
+                Type::Real => Type::Real,
+                _ => {
+                    return Err(
+                        TypeCheckError::ExpectedNumericType(otype).spanned(operand.span.clone())
+                    )
+                }
+            }),
         }
     }
 }
@@ -65,7 +88,7 @@ pub enum TypeCheckError {
 
 impl HasSpan for TypeCheckError {}
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     Natural,
     Integer,
@@ -88,6 +111,14 @@ impl Type {
 
         match self {
             Natural | Integer | Real => true,
+        }
+    }
+
+    fn minimum_type(&self, ty: Type) -> Type {
+        if ty.is_subtype_of(self) {
+            self.clone()
+        } else {
+            ty
         }
     }
 }

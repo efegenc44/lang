@@ -19,7 +19,9 @@ impl Iterator for Lexer {
 
         let token = match self.current_char() {
             '+' => Plus,
+            '-' => Minus,
             '*' => Star,
+            '/' => Slash,
             '(' => LParen,
             ')' => RParen,
             '\0' => End,
@@ -113,7 +115,9 @@ pub enum Token {
     NaturalNumber(Symbol),
     RealNumber(Symbol),
     Plus,
+    Minus,
     Star,
+    Slash,
 
     LParen,
     RParen,

@@ -71,6 +71,17 @@ impl Parser {
                 let end_span = self.expect(RParen)?;
                 return Ok(expr.start_end(current_token_span, end_span));
             }
+            Minus => {
+                let op = self.current_token().into();
+                self.advance();
+                let operand = self.product()?;
+                let end_span = operand.span.clone();
+                return Ok(Expression::Unary {
+                    op,
+                    operand: Box::new(operand),
+                }
+                .start_end(current_token_span, end_span));
+            }
             unexpected_token => {
                 return Err(
                     ParseError::UnknownStartOfAnExpression(unexpected_token.clone())
@@ -83,8 +94,8 @@ impl Parser {
         Ok(expr)
     }
 
-    binary_expr_precedence_level!(term; product; Token::Star);
-    binary_expr_precedence_level!(arithmetic; term; Token::Plus);
+    binary_expr_precedence_level!(term; product; Token::Star | Token::Slash);
+    binary_expr_precedence_level!(arithmetic; term; Token::Plus | Token::Minus);
 
     #[inline]
     fn expr(&mut self) -> ParseResult {
@@ -115,6 +126,10 @@ pub enum Expression {
         left: Box<Spanned<Expression>>,
         right: Box<Spanned<Expression>>,
     },
+    Unary {
+        op: UnaryOp,
+        operand: Box<Spanned<Expression>>,
+    },
 }
 
 impl HasSpan for Expression {}
@@ -144,6 +159,10 @@ impl Spanned<Expression> {
                 left._pretty_print(depth + 1);
                 right._pretty_print(depth + 1);
             }
+            Unary { op, operand } => {
+                pprint!("Unary: {op:?}");
+                operand._pretty_print(depth + 1);
+            }
         }
     }
 }
@@ -151,7 +170,9 @@ impl Spanned<Expression> {
 #[derive(Debug)]
 pub enum BinaryOp {
     Addition,
+    Subtraction,
     Multiplication,
+    Division,
 }
 
 impl From<&Token> for BinaryOp {
@@ -160,7 +181,25 @@ impl From<&Token> for BinaryOp {
 
         match value {
             Plus => Self::Addition,
+            Minus => Self::Subtraction,
             Star => Self::Multiplication,
+            Slash => Self::Division,
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum UnaryOp {
+    Negation,
+}
+
+impl From<&Token> for UnaryOp {
+    fn from(value: &Token) -> Self {
+        use Token::*;
+
+        match value {
+            Minus => Self::Negation,
             _ => unreachable!(),
         }
     }
