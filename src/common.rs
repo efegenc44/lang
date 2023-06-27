@@ -30,3 +30,43 @@ pub trait HasSpan {
         self.spanned(start_span.start..end_span.end)
     }
 }
+
+pub trait Error {
+    fn message(&self) -> String;
+}
+
+impl<T: Error> std::fmt::Display for Spanned<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        const ERROR_INDENT_LENGTH: usize = 4;
+
+        writeln!(f)?;
+        writeln!(
+            f,
+            "{:indent$} | {}:{}",
+            "",
+            self.span.start,
+            self.span.end,
+            indent = ERROR_INDENT_LENGTH
+        )?;
+        writeln!(
+            f,
+            "{:indent$} | {}",
+            "",
+            self.data.message(),
+            indent = ERROR_INDENT_LENGTH
+        )
+    }
+}
+
+#[macro_export]
+macro_rules! repl_handle_error {
+    ($e:expr) => {
+        match $e {
+            Ok(data) => data,
+            Err(error) => {
+                println!("{error}");
+                continue;
+            }
+        }
+    };
+}

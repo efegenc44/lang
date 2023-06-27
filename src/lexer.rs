@@ -110,6 +110,16 @@ pub enum LexError {
 
 impl HasSpan for LexError {}
 
+impl Error for LexError {
+    fn message(&self) -> String {
+        use LexError::*;
+
+        match self {
+            UnknownStartOfAToken(ch) => format!("Encountered an unknown start of a token: `{ch}`"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     NaturalNumber(Symbol),

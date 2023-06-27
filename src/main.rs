@@ -32,13 +32,14 @@ fn main() -> io::Result<()> {
                 show_ast = !show_ast;
                 continue;
             }
+            "" => continue,
             _ => (),
         }
 
-        let tokens = Lexer::new(input).collect().unwrap();
-        let astree = Parser::new(tokens).parse().unwrap();
-        let e_type = typechecker.verify_type(&astree).unwrap();
-        let result = engine.evaluate(&astree).unwrap();
+        let tokens = repl_handle_error!(Lexer::new(input).collect());
+        let astree = repl_handle_error!(Parser::new(tokens).parse());
+        let e_type = repl_handle_error!(typechecker.verify_type(&astree));
+        let result = repl_handle_error!(engine.evaluate(&astree));
 
         if show_ast {
             println!();

@@ -49,12 +49,9 @@ impl Engine {
             Addition => lvalue + rvalue,
             Multiplication => lvalue * rvalue,
             Subtraction => lvalue - rvalue,
-            Division => match lvalue / rvalue {
-                Some(value) => value,
-                None => {
-                    return Err(EvaluationError::AttemptToDivideByZero.spanned(right.span.clone()))
-                }
-            },
+            Division => (lvalue / rvalue).ok_or_else(|| {
+                EvaluationError::AttemptToDivideByZero.spanned(right.span.clone())
+            })?,
         })
     }
 
@@ -78,6 +75,16 @@ pub enum EvaluationError {
 
 impl HasSpan for EvaluationError {}
 
+impl Error for EvaluationError {
+    fn message(&self) -> String {
+        use EvaluationError::*;
+
+        match self {
+            AttemptToDivideByZero => "Attempted to divide by zero".to_string(),
+        }
+    }
+}
+
 pub enum Value {
     Natural(NaturalValue),
     Integer(IntegerValue),
@@ -97,7 +104,7 @@ impl std::fmt::Display for Value {
 }
 
 impl Value {
-    fn to_real(self) -> Real {
+    fn real_value(self) -> Real {
         match self {
             Value::Natural(nat) => match nat {
                 NaturalValue::Small(nat) => nat as Real,
@@ -111,7 +118,7 @@ impl Value {
         }
     }
 
-    fn to_int(self) -> IntegerValue {
+    fn int_value(self) -> IntegerValue {
         match self {
             Value::Natural(nat) => match nat {
                 NaturalValue::Small(nat) => match Int::try_from(nat) {
@@ -133,8 +140,8 @@ impl std::ops::Add for Value {
         use Value::*;
 
         match (&self, &rhs) {
-            (Real(_), _) | (_, Real(_)) => Value::Real(self.to_real() + rhs.to_real()),
-            (_, Integer(_)) | (Integer(_), _) => Value::Integer(self.to_int() + rhs.to_int()),
+            (Real(_), _) | (_, Real(_)) => Value::Real(self.real_value() + rhs.real_value()),
+            (_, Integer(_)) | (Integer(_), _) => Value::Integer(self.int_value() + rhs.int_value()),
             (Natural(lnat), Natural(rnat)) => Value::Natural(lnat + rnat),
         }
     }
@@ -147,8 +154,8 @@ impl std::ops::Mul for Value {
         use Value::*;
 
         match (&self, &rhs) {
-            (Real(_), _) | (_, Real(_)) => Value::Real(self.to_real() * rhs.to_real()),
-            (_, Integer(_)) | (Integer(_), _) => Value::Integer(self.to_int() * rhs.to_int()),
+            (Real(_), _) | (_, Real(_)) => Value::Real(self.real_value() * rhs.real_value()),
+            (_, Integer(_)) | (Integer(_), _) => Value::Integer(self.int_value() * rhs.int_value()),
             (Natural(lnat), Natural(rnat)) => Value::Natural(lnat * rnat),
         }
     }
@@ -161,9 +168,9 @@ impl std::ops::Sub for Value {
         use Value::*;
 
         match (&self, &rhs) {
-            (Real(_), _) | (_, Real(_)) => Value::Real(self.to_real() - rhs.to_real()),
+            (Real(_), _) | (_, Real(_)) => Value::Real(self.real_value() - rhs.real_value()),
             (_, Integer(_)) | (Integer(_), _) | (Natural(_), Natural(_)) => {
-                Value::Integer(self.to_int() - rhs.to_int())
+                Value::Integer(self.int_value() - rhs.int_value())
             }
         }
     }
@@ -181,11 +188,11 @@ impl std::ops::Div for Value {
             | (_, Integer(_))
             | (Integer(_), _)
             | (Natural(_), Natural(_)) => {
-                let rvalue = rhs.to_real();
+                let rvalue = rhs.real_value();
                 if rvalue == 0. {
                     return None;
                 }
-                Some(Value::Real(self.to_real() / rvalue))
+                Some(Value::Real(self.real_value() / rvalue))
             }
         }
     }

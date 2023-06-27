@@ -118,6 +118,24 @@ pub enum ParseError {
 
 impl HasSpan for ParseError {}
 
+impl Error for ParseError {
+    fn message(&self) -> String {
+        use ParseError::*;
+        match self {
+            UnknownStartOfAnExpression(token) => {
+                format!("No expression starts with this token: `{token:?}`")
+            }
+            ExpectedADifferentToken { found, expected } => {
+                if let Token::RParen = expected {
+                    "Unclosed parentheses".to_string()
+                } else {
+                    format!("Expected a `{expected:?}`, instead found `{found:?}`")
+                }
+            }
+        }
+    }
+}
+
 pub enum Expression {
     NaturalNumber(Symbol),
     RealNumber(Symbol),

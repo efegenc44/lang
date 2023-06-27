@@ -89,6 +89,16 @@ pub enum TypeCheckError {
 
 impl HasSpan for TypeCheckError {}
 
+impl Error for TypeCheckError {
+    fn message(&self) -> String {
+        use TypeCheckError::*;
+
+        match self {
+            ExpectedNumericType(t) => format!("Expected an expression type one of `Natural`, `Integer`, or `Real` instead found `{t:?}`"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     Natural,
