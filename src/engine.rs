@@ -104,33 +104,48 @@ impl std::fmt::Display for Value {
 }
 
 impl Value {
-    fn real_value(self) -> Real {
+    fn real(self) -> Real {
+        use Value::*;
+        use NaturalValue as nv;
+        use IntegerValue as iv;
+
         match self {
-            Value::Natural(nat) => match nat {
-                NaturalValue::Small(nat) => nat as Real,
-                NaturalValue::Big(nat) => nat.to_string().parse().unwrap(),
+            Natural(nat) => match nat {
+                nv::Small(nat) => nat as crate::common::Real,
+                // TODO: Proper BigNum to float conversion.
+                nv::Big(nat) => nat.to_string().parse().unwrap(),
             },
-            Value::Integer(int) => match int {
-                IntegerValue::Small(int) => int as Real,
-                IntegerValue::Big(int) => int.to_string().parse().unwrap(),
+            Integer(int) => match int {
+                iv::Small(int) => int as crate::common::Real,
+                // TODO: Proper BigNum to float conversion.
+                iv::Big(int) => int.to_string().parse().unwrap(),
             },
-            Value::Real(real) => real,
+            Real(real) => real,
         }
     }
 
-    fn int_value(self) -> IntegerValue {
+    fn int(self) -> IntegerValue {
+        use Value::*;
+        use NaturalValue as nv;
+        use IntegerValue as iv;
+
         match self {
-            Value::Natural(nat) => match nat {
-                NaturalValue::Small(nat) => match Int::try_from(nat) {
-                    Ok(int) => IntegerValue::Small(int),
-                    Err(_) => IntegerValue::Big(BigInt::from(nat)),
+            Natural(nat) => match nat {
+                nv::Small(nat) => match Int::try_from(nat) {
+                    Ok(int) => iv::Small(int),
+                    Err(_) => iv::Big(BigInt::from(nat)),
                 },
-                NaturalValue::Big(nat) => IntegerValue::Big(nat.into()),
+                nv::Big(nat) => iv::Big(nat.into()),
             },
-            Value::Integer(int) => int,
-            Value::Real(_) => unreachable!(),
+            Integer(int) => int,
+            Real(_) => unreachable!(),
         }
     }
+}
+
+// Match if a binary tuple contains specified value in either of its containers
+macro_rules! any {
+    ($v:ident, $l:ident, $r:ident) => (($l @ $v(_), $r) | ($l, $r @ $v(_)))
 }
 
 impl std::ops::Add for Value {
@@ -139,10 +154,10 @@ impl std::ops::Add for Value {
     fn add(self, rhs: Self) -> Self::Output {
         use Value::*;
 
-        match (&self, &rhs) {
-            (Real(_), _) | (_, Real(_)) => Value::Real(self.real_value() + rhs.real_value()),
-            (_, Integer(_)) | (Integer(_), _) => Value::Integer(self.int_value() + rhs.int_value()),
-            (Natural(lnat), Natural(rnat)) => Value::Natural(lnat + rnat),
+        match (self, rhs) {
+            any!(Real, lvalue, rvalue) => Real(lvalue.real() + rvalue.real()),
+            any!(Integer, lvalue, rvalue) => Integer(lvalue.int() + rvalue.int()),
+            (Natural(lnat), Natural(rnat)) => Natural(lnat + rnat),
         }
     }
 }
@@ -153,10 +168,10 @@ impl std::ops::Mul for Value {
     fn mul(self, rhs: Self) -> Self::Output {
         use Value::*;
 
-        match (&self, &rhs) {
-            (Real(_), _) | (_, Real(_)) => Value::Real(self.real_value() * rhs.real_value()),
-            (_, Integer(_)) | (Integer(_), _) => Value::Integer(self.int_value() * rhs.int_value()),
-            (Natural(lnat), Natural(rnat)) => Value::Natural(lnat * rnat),
+        match (self, rhs) {
+            any!(Real, lvalue, rvalue) => Real(lvalue.real() * rvalue.real()),
+            any!(Integer, lvalue, rvalue) => Integer(lvalue.int() * rvalue.int()),
+            (Natural(lnat), Natural(rnat)) => Natural(lnat * rnat),
         }
     }
 }
@@ -167,11 +182,9 @@ impl std::ops::Sub for Value {
     fn sub(self, rhs: Self) -> Self::Output {
         use Value::*;
 
-        match (&self, &rhs) {
-            (Real(_), _) | (_, Real(_)) => Value::Real(self.real_value() - rhs.real_value()),
-            (_, Integer(_)) | (Integer(_), _) | (Natural(_), Natural(_)) => {
-                Value::Integer(self.int_value() - rhs.int_value())
-            }
+        match (self, rhs) {
+            any!(Real, lvalue, rvalue) => Real(lvalue.real() - rvalue.real()),
+            (lvalue, rvalue) => Integer(lvalue.int() - rvalue.int()),
         }
     }
 }
@@ -180,20 +193,9 @@ impl std::ops::Div for Value {
     type Output = Option<Value>;
 
     fn div(self, rhs: Self) -> Self::Output {
-        use Value::*;
-
-        match (&self, &rhs) {
-            (Real(_), _)
-            | (_, Real(_))
-            | (_, Integer(_))
-            | (Integer(_), _)
-            | (Natural(_), Natural(_)) => {
-                let rvalue = rhs.real_value();
-                if rvalue == 0. {
-                    return None;
-                }
-                Some(Value::Real(self.real_value() / rvalue))
-            }
+        match rhs.real() {
+            rvalue if rvalue == 0. => None,
+            rvalue => Some(Value::Real(self.real() / rvalue)),
         }
     }
 }
@@ -205,20 +207,8 @@ impl std::ops::Neg for Value {
         use Value::*;
 
         match self {
-            Natural(nat) => match nat {
-                NaturalValue::Small(nat) => match Int::try_from(nat) {
-                    Ok(int) => -Value::Integer(IntegerValue::Small(int)),
-                    Err(_) => Integer(IntegerValue::Big(-BigInt::from(nat))),
-                },
-                NaturalValue::Big(int) => Integer(IntegerValue::Big(-BigInt::from(int))),
-            },
-            Integer(int) => match int {
-                IntegerValue::Small(int) => match int.checked_neg() {
-                    Some(int) => Integer(IntegerValue::Small(int)),
-                    None => Integer(IntegerValue::Big(-BigInt::from(int))),
-                },
-                IntegerValue::Big(int) => Integer(IntegerValue::Big(-int)),
-            },
+            Natural(nat) => Integer(-nat),
+            Integer(int) => Integer(-int),
             Real(real) => Real(-real),
         }
     }
@@ -240,7 +230,7 @@ impl std::fmt::Display for NaturalValue {
     }
 }
 
-impl std::ops::Add for &NaturalValue {
+impl std::ops::Add for NaturalValue {
     type Output = NaturalValue;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -248,18 +238,16 @@ impl std::ops::Add for &NaturalValue {
 
         match (self, rhs) {
             (Small(lint), Small(rint)) => lint
-                .checked_add(*rint)
+                .checked_add(rint)
                 .map(Small)
-                .unwrap_or_else(|| Big(BigNat::from(*lint) + BigNat::from(*rint))),
-            (Small(small), Big(big)) | (Big(big), Small(small)) => {
-                Big(BigNat::from(*small) + big.clone())
-            }
+                .unwrap_or_else(|| Big(BigNat::from(lint) + BigNat::from(rint))),
+            (Small(small), Big(big)) | (Big(big), Small(small)) => Big(BigNat::from(small) + big),
             (Big(lbig), Big(rbig)) => Big(lbig + rbig),
         }
     }
 }
 
-impl std::ops::Mul for &NaturalValue {
+impl std::ops::Mul for NaturalValue {
     type Output = NaturalValue;
 
     fn mul(self, rhs: Self) -> Self::Output {
@@ -267,13 +255,28 @@ impl std::ops::Mul for &NaturalValue {
 
         match (self, rhs) {
             (Small(lint), Small(rint)) => lint
-                .checked_mul(*rint)
+                .checked_mul(rint)
                 .map(Small)
-                .unwrap_or_else(|| Big(BigNat::from(*lint) * BigNat::from(*rint))),
-            (Small(small), Big(big)) | (Big(big), Small(small)) => {
-                Big(BigNat::from(*small) * big.clone())
-            }
+                .unwrap_or_else(|| Big(BigNat::from(lint) * BigNat::from(rint))),
+            (Small(small), Big(big)) | (Big(big), Small(small)) => Big(BigNat::from(small) * big),
             (Big(lbig), Big(rbig)) => Big(lbig * rbig),
+        }
+    }
+}
+
+impl std::ops::Neg for NaturalValue {
+    type Output = IntegerValue;
+
+    fn neg(self) -> Self::Output {
+        use IntegerValue as iv;
+        use NaturalValue::*;
+
+        match self {
+            Small(nat) => match Int::try_from(nat) {
+                Ok(int) => -iv::Small(int),
+                Err(_) => iv::Big(-BigInt::from(nat)),
+            },
+            Big(int) => iv::Big(-BigInt::from(int)),
         }
     }
 }
@@ -342,6 +345,22 @@ impl std::ops::Sub for IntegerValue {
             (Small(small), Big(big)) => Big(BigInt::from(small) - big),
             (Big(big), Small(small)) => Big(big - BigInt::from(small)),
             (Big(lbig), Big(rbig)) => Big(lbig - rbig),
+        }
+    }
+}
+
+impl std::ops::Neg for IntegerValue {
+    type Output = IntegerValue;
+
+    fn neg(self) -> Self::Output {
+        use IntegerValue::*;
+
+        match self {
+            Small(int) => match int.checked_neg() {
+                Some(int) => Small(int),
+                None => Big(-BigInt::from(int)),
+            },
+            Big(int) => Big(-int),
         }
     }
 }
