@@ -29,19 +29,15 @@ impl TypeCheker {
         right: &Spanned<Expression>,
     ) -> TypeCheckResult {
         use BinaryOp::*;
+        use Type::*;
 
         let ltype = self.verify_type(left)?;
         let rtype = self.verify_type(right)?;
 
         match op {
             Addition | Multiplication | Subtraction | Division => {
-                let true = ltype.is_numeric() else {
-                    return Err(TypeCheckError::ExpectedNumericType(ltype).spanned(left.span.clone()));
-                };
-
-                let true = rtype.is_numeric() else {
-                    return Err(TypeCheckError::ExpectedNumericType(rtype).spanned(right.span.clone()));
-                };
+                Self::expect_numeric(&ltype).map_err(|err| err.spanned(left.span.clone()))?;
+                Self::expect_numeric(&rtype).map_err(|err| err.spanned(right.span.clone()))?;
 
                 // Subtyping relation between numeric types is total.
                 let super_type = if ltype.is_subtype_of(&rtype) {
@@ -50,13 +46,16 @@ impl TypeCheker {
                     ltype
                 };
 
-                Ok(if let Subtraction = op {
-                    super_type.minimum_type(Type::Integer)
-                } else if let Division = op {
-                    super_type.minimum_type(Type::Real)
-                } else {
-                    super_type
+                Ok(match op {
+                    Subtraction => super_type.minimum_type(Integer),
+                    Division => super_type.minimum_type(Real),
+                    _ => super_type,
                 })
+            }
+            And | Or => {
+                Self::expect_type(&ltype, &Bool).map_err(|err| err.spanned(left.span.clone()))?;
+                Self::expect_type(&rtype, &Bool).map_err(|err| err.spanned(right.span.clone()))?;
+                Ok(Bool)
             }
         }
     }
@@ -70,7 +69,6 @@ impl TypeCheker {
             Negation => Ok(match otype {
                 Type::Natural | Type::Integer => Type::Integer,
                 Type::Real => Type::Real,
-                #[allow(unreachable_patterns)]
                 _ => {
                     return Err(
                         TypeCheckError::ExpectedNumericType(otype).spanned(operand.span.clone())
@@ -79,6 +77,23 @@ impl TypeCheker {
             }),
         }
     }
+
+    fn expect_type(t: &Type, expected: &Type) -> Result<(), TypeCheckError> {
+        if t != expected {
+            return Err(TypeCheckError::MismatchedType {
+                found: t.clone(),
+                expected: expected.clone(),
+            });
+        };
+        Ok(())
+    }
+
+    fn expect_numeric(t: &Type) -> Result<(), TypeCheckError> {
+        if !t.is_numeric() {
+            return Err(TypeCheckError::ExpectedNumericType(t.clone()));
+        };
+        Ok(())
+    }
 }
 
 type TypeCheckResult = Result<Type, Spanned<TypeCheckError>>;
@@ -86,6 +101,7 @@ type TypeCheckResult = Result<Type, Spanned<TypeCheckError>>;
 #[derive(Debug)]
 pub enum TypeCheckError {
     ExpectedNumericType(Type),
+    MismatchedType { found: Type, expected: Type },
 }
 
 impl HasSpan for TypeCheckError {}
@@ -96,6 +112,7 @@ impl Error for TypeCheckError {
 
         match self {
             ExpectedNumericType(t) => format!("Expected an expression type one of `Natural`, `Integer`, or `Real` instead found `{t:?}`"),
+            MismatchedType { found, expected } => format!("Expected an expression type of `{expected:?}` instead found `{found:?}`"),
         }
     }
 }

@@ -117,6 +117,8 @@ impl Lexer {
         Ok(match symbol.as_str() {
             "true" => Ktrue,
             "false" => Kfalse,
+            "and" => Kand,
+            "or" => Kor,
             _ => Identifier(symbol.into_boxed_str()),
         }
         .spanned(start..self.index))
@@ -169,6 +171,9 @@ pub enum Token {
     Ktrue,
     Kfalse,
 
+    Kand,
+    Kor,
+
     End,
 }
 
@@ -190,6 +195,8 @@ impl std::fmt::Display for Token {
             RParen => write!(f, ")"),
             Ktrue => write!(f, "true"),
             Kfalse => write!(f, "false"),
+            Kand => write!(f, "and"),
+            Kor => write!(f, "or"),
             End => write!(f, "END"),
         }
     }

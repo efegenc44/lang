@@ -53,6 +53,8 @@ impl Engine {
             Division => (lvalue / rvalue).ok_or_else(|| {
                 EvaluationError::AttemptToDivideByZero.spanned(right.span.clone())
             })?,
+            And => lvalue & rvalue,
+            Or => lvalue | rvalue,
         })
     }
 
@@ -216,6 +218,32 @@ impl std::ops::Neg for Value {
             Natural(nat) => Integer(-nat),
             Integer(int) => Integer(-int),
             Real(real) => Real(-real),
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl std::ops::BitAnd for Value {
+    type Output = Value;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        use Value::*;
+
+        match (self, rhs) {
+            (Bool(lbool), Bool(rbool)) => Bool(lbool && rbool),
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl std::ops::BitOr for Value {
+    type Output = Value;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        use Value::*;
+
+        match (self, rhs) {
+            (Bool(lbool), Bool(rbool)) => Bool(lbool || rbool),
             _ => unreachable!(),
         }
     }

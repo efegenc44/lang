@@ -99,9 +99,12 @@ impl Parser {
     binary_expr_precedence_level!(term; product; Token::Star | Token::Slash);
     binary_expr_precedence_level!(arithmetic; term; Token::Plus | Token::Minus);
 
+    binary_expr_precedence_level!(bool_and; arithmetic; Token::Kand);
+    binary_expr_precedence_level!(bool_or; bool_and; Token::Kor);
+
     #[inline]
     fn expr(&mut self) -> ParseResult {
-        self.arithmetic()
+        self.bool_or()
     }
 
     pub fn parse(&mut self) -> ParseResult {
@@ -207,6 +210,8 @@ pub enum BinaryOp {
     Subtraction,
     Multiplication,
     Division,
+    And,
+    Or,
 }
 
 impl From<&Token> for BinaryOp {
@@ -218,6 +223,8 @@ impl From<&Token> for BinaryOp {
             Minus => Self::Subtraction,
             Star => Self::Multiplication,
             Slash => Self::Division,
+            Kand => Self::And,
+            Kor => Self::Or,
             _ => unreachable!(),
         }
     }
