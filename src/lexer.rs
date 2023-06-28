@@ -31,6 +31,7 @@ impl Iterator for Lexer {
                 return self.next();
             }
             '0'..='9' => return Some(self.lex_number()),
+            ch if ch.is_alphabetic() || ch == &'_' => return Some(self.lex_symbol()),
             unknown_start => {
                 return Some(Err(
                     LexError::UnknownStartOfAToken(*unknown_start).spanned(start..self.index)
@@ -70,6 +71,8 @@ impl Lexer {
     }
 
     fn lex_number(&mut self) -> LexResult {
+        use Token::*;
+
         let start = self.index;
 
         while let '0'..='9' = self.current_char() {
@@ -84,16 +87,43 @@ impl Lexer {
             }
         }
 
+        if self.valid_symbol_character() {
+            return Err(LexError::InvalidNumericLiteral.spanned(start..self.index + 1));
+        }
+
         let number = self.chars[start..self.index]
             .iter()
             .collect::<String>()
             .into_boxed_str();
 
         Ok(match is_real {
-            true => Token::RealNumber(number),
-            false => Token::NaturalNumber(number),
+            true => RealNumber(number),
+            false => NaturalNumber(number),
         }
         .spanned(start..self.index))
+    }
+
+    fn lex_symbol(&mut self) -> LexResult {
+        use Token::*;
+
+        let start = self.index;
+
+        while self.valid_symbol_character() {
+            self.advance();
+        }
+
+        let symbol = self.chars[start..self.index].iter().collect::<String>();
+
+        Ok(match symbol.as_str() {
+            "true" => Ktrue,
+            "false" => Kfalse,
+            _ => Identifier(symbol.into_boxed_str()),
+        }
+        .spanned(start..self.index))
+    }
+
+    fn valid_symbol_character(&self) -> bool {
+        self.current_char().is_alphanumeric() || self.current_char() == &'_'
     }
 
     pub fn collect(self) -> Result<Vec<Spanned<Token>>, Spanned<LexError>> {
@@ -106,6 +136,7 @@ type LexResult = Result<Spanned<Token>, Spanned<LexError>>;
 #[derive(Debug)]
 pub enum LexError {
     UnknownStartOfAToken(char),
+    InvalidNumericLiteral,
 }
 
 impl HasSpan for LexError {}
@@ -116,6 +147,7 @@ impl Error for LexError {
 
         match self {
             UnknownStartOfAToken(ch) => format!("Encountered an unknown start of a token: `{ch}`"),
+            InvalidNumericLiteral => "Numeric Literal contains alphabetic character(s)".to_string(),
         }
     }
 }
@@ -124,6 +156,8 @@ impl Error for LexError {
 pub enum Token {
     NaturalNumber(Symbol),
     RealNumber(Symbol),
+    Identifier(Symbol),
+
     Plus,
     Minus,
     Star,
@@ -132,7 +166,31 @@ pub enum Token {
     LParen,
     RParen,
 
+    Ktrue,
+    Kfalse,
+
     End,
 }
 
 impl HasSpan for Token {}
+
+impl std::fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use Token::*;
+
+        match self {
+            NaturalNumber(_) => write!(f, "Natural Literal"),
+            RealNumber(_) => write!(f, "Real Literal"),
+            Identifier(_) => write!(f, "Identifier"),
+            Plus => write!(f, "+"),
+            Minus => write!(f, "-"),
+            Star => write!(f, "*"),
+            Slash => write!(f, "/"),
+            LParen => write!(f, "("),
+            RParen => write!(f, ")"),
+            Ktrue => write!(f, "true"),
+            Kfalse => write!(f, "false"),
+            End => write!(f, "END"),
+        }
+    }
+}

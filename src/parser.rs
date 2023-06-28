@@ -65,6 +65,8 @@ impl Parser {
                 Expression::NaturalNumber(nat.clone()).spanned(current_token_span)
             }
             RealNumber(real) => Expression::RealNumber(real.clone()).spanned(current_token_span),
+            Ktrue => Expression::BoolValue(true).spanned(current_token_span),
+            Kfalse => Expression::BoolValue(false).spanned(current_token_span),
             LParen => {
                 self.advance();
                 let expr = self.expr()?.data;
@@ -102,9 +104,17 @@ impl Parser {
         self.arithmetic()
     }
 
-    #[inline]
     pub fn parse(&mut self) -> ParseResult {
-        self.arithmetic()
+        let ast = self.expr()?;
+
+        if self.index != self.tokens.len() - 1 {
+            return Err(
+                ParseError::UnconsumedTokenOrTokens(self.current_token().clone())
+                    .spanned(self.get_span()),
+            );
+        }
+
+        Ok(ast)
     }
 }
 
@@ -114,6 +124,7 @@ type ParseResult = Result<Spanned<Expression>, Spanned<ParseError>>;
 pub enum ParseError {
     UnknownStartOfAnExpression(Token),
     ExpectedADifferentToken { found: Token, expected: Token },
+    UnconsumedTokenOrTokens(Token),
 }
 
 impl HasSpan for ParseError {}
@@ -123,14 +134,17 @@ impl Error for ParseError {
         use ParseError::*;
         match self {
             UnknownStartOfAnExpression(token) => {
-                format!("No expression starts with this token: `{token:?}`")
+                format!("No expression starts with this token: `{token}`")
             }
             ExpectedADifferentToken { found, expected } => {
                 if let Token::RParen = expected {
                     "Unclosed parentheses".to_string()
                 } else {
-                    format!("Expected a `{expected:?}`, instead found `{found:?}`")
+                    format!("Expected a `{expected}`, instead found `{found}`")
                 }
+            }
+            UnconsumedTokenOrTokens(token) => {
+                format!("Parser couldn't consume all tokens. First of unconsumed tokens: `{token}`")
             }
         }
     }
@@ -139,6 +153,7 @@ impl Error for ParseError {
 pub enum Expression {
     NaturalNumber(Symbol),
     RealNumber(Symbol),
+    BoolValue(bool),
     Binary {
         op: BinaryOp,
         left: Box<Spanned<Expression>>,
@@ -172,6 +187,7 @@ impl Spanned<Expression> {
         match &self.data {
             NaturalNumber(nat) => pprint!("Nat: {nat}"),
             RealNumber(real) => pprint!("Real: {real}"),
+            BoolValue(value) => pprint!("Bool: {value}"),
             Binary { op, left, right } => {
                 pprint!("Binary: {op:?}");
                 left._pretty_print(depth + 1);

@@ -16,6 +16,7 @@ impl TypeCheker {
         Ok(match &e.data {
             NaturalNumber(_) => Type::Natural,
             RealNumber(_) => Type::Real,
+            BoolValue(_) => Type::Bool,
             Binary { op, left, right } => self.verify_binary_op(op, left, right)?,
             Unary { op, operand } => self.verify_unary_op(op, operand)?,
         })
@@ -104,6 +105,7 @@ pub enum Type {
     Natural,
     Integer,
     Real,
+    Bool,
 }
 
 impl Type {
@@ -120,9 +122,7 @@ impl Type {
     fn is_numeric(&self) -> bool {
         use Type::*;
 
-        match self {
-            Natural | Integer | Real => true,
-        }
+        matches!(self, Natural | Integer | Real)
     }
 
     fn minimum_type(&self, ty: Type) -> Type {

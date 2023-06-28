@@ -29,6 +29,7 @@ impl Engine {
                 })
             }
             RealNumber(real) => Value::Real(real.parse::<Real>().unwrap()),
+            BoolValue(value) => Value::Bool(*value),
             Binary { op, left, right } => self.evaluate_binary_op(op, left, right)?,
             Unary { op, operand } => self.evaluate_unary_op(op, operand)?,
         })
@@ -89,6 +90,7 @@ pub enum Value {
     Natural(NaturalValue),
     Integer(IntegerValue),
     Real(Real),
+    Bool(bool),
 }
 
 impl std::fmt::Display for Value {
@@ -99,15 +101,16 @@ impl std::fmt::Display for Value {
             Natural(nat) => write!(f, "{nat}"),
             Integer(int) => write!(f, "{int}"),
             Real(real) => write!(f, "{real}"),
+            Bool(value) => write!(f, "{value}"),
         }
     }
 }
 
 impl Value {
     fn real(self) -> Real {
-        use Value::*;
-        use NaturalValue as nv;
         use IntegerValue as iv;
+        use NaturalValue as nv;
+        use Value::*;
 
         match self {
             Natural(nat) => match nat {
@@ -121,13 +124,14 @@ impl Value {
                 iv::Big(int) => int.to_string().parse().unwrap(),
             },
             Real(real) => real,
+            _ => unreachable!(),
         }
     }
 
     fn int(self) -> IntegerValue {
-        use Value::*;
-        use NaturalValue as nv;
         use IntegerValue as iv;
+        use NaturalValue as nv;
+        use Value::*;
 
         match self {
             Natural(nat) => match nat {
@@ -138,7 +142,7 @@ impl Value {
                 nv::Big(nat) => iv::Big(nat.into()),
             },
             Integer(int) => int,
-            Real(_) => unreachable!(),
+            _ => unreachable!(),
         }
     }
 }
@@ -158,6 +162,7 @@ impl std::ops::Add for Value {
             any!(Real, lvalue, rvalue) => Real(lvalue.real() + rvalue.real()),
             any!(Integer, lvalue, rvalue) => Integer(lvalue.int() + rvalue.int()),
             (Natural(lnat), Natural(rnat)) => Natural(lnat + rnat),
+            _ => unreachable!(),
         }
     }
 }
@@ -172,6 +177,7 @@ impl std::ops::Mul for Value {
             any!(Real, lvalue, rvalue) => Real(lvalue.real() * rvalue.real()),
             any!(Integer, lvalue, rvalue) => Integer(lvalue.int() * rvalue.int()),
             (Natural(lnat), Natural(rnat)) => Natural(lnat * rnat),
+            _ => unreachable!(),
         }
     }
 }
@@ -210,6 +216,7 @@ impl std::ops::Neg for Value {
             Natural(nat) => Integer(-nat),
             Integer(int) => Integer(-int),
             Real(real) => Real(-real),
+            _ => unreachable!(),
         }
     }
 }
