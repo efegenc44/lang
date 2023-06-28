@@ -7,17 +7,22 @@ use crate::{
     parser::{BinaryOp, Expression, UnaryOp},
 };
 
-pub struct Engine {}
+pub struct Engine {
+    env: Environment<Value>,
+}
 
 impl Engine {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            env: Environment::new(),
+        }
     }
 
-    pub fn evaluate(&self, e: &Spanned<Expression>) -> EvaluationResult {
+    pub fn evaluate(&mut self, e: &Spanned<Expression>) -> EvaluationResult {
         use Expression::*;
 
         Ok(match &e.data {
+            Identifier(symbol) => self.env.resolve(symbol).unwrap().clone(),
             NaturalNumber(nat) => {
                 Value::Natural(match nat.parse::<Nat>() {
                     Ok(nat) => NaturalValue::Small(nat),
@@ -32,11 +37,17 @@ impl Engine {
             BoolValue(value) => Value::Bool(*value),
             Binary { op, left, right } => self.evaluate_binary_op(op, left, right)?,
             Unary { op, operand } => self.evaluate_unary_op(op, operand)?,
+            Let {
+                name,
+                type_annot: _,
+                value,
+                expr,
+            } => self.evaluate_let_expr(name, value, expr)?,
         })
     }
 
     fn evaluate_binary_op(
-        &self,
+        &mut self,
         op: &BinaryOp,
         left: &Spanned<Expression>,
         right: &Spanned<Expression>,
@@ -64,7 +75,11 @@ impl Engine {
         })
     }
 
-    fn evaluate_unary_op(&self, op: &UnaryOp, operand: &Spanned<Expression>) -> EvaluationResult {
+    fn evaluate_unary_op(
+        &mut self,
+        op: &UnaryOp,
+        operand: &Spanned<Expression>,
+    ) -> EvaluationResult {
         use UnaryOp::*;
 
         let ovalue = self.evaluate(operand)?;
@@ -73,6 +88,19 @@ impl Engine {
             Negation => -ovalue,
             Not => !ovalue,
         })
+    }
+
+    fn evaluate_let_expr(
+        &mut self,
+        name: &Spanned<Symbol>,
+        value: &Spanned<Expression>,
+        expr: &Spanned<Expression>,
+    ) -> EvaluationResult {
+        let value = self.evaluate(value)?;
+        self.env.define(name.data.clone(), value);
+        let result = self.evaluate(expr)?;
+        self.env.shallow();
+        Ok(result)
     }
 }
 

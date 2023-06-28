@@ -32,6 +32,7 @@ impl Iterator for Lexer {
             '>' => if self.peek_is('=') { GreaterEqual } else { Greater },
             '(' => LParen,
             ')' => RParen,
+            ':' => Colon,
             '\0' => End,
 
             ' ' | '\t' | '\r' | '\n' => {
@@ -132,6 +133,8 @@ impl Lexer {
         let symbol = self.chars[start..self.index].iter().collect::<String>();
 
         Ok(match symbol.as_str() {
+            "let" => Klet,
+            "in" => Kin,
             "true" => Ktrue,
             "false" => Kfalse,
             "and" => Kand,
@@ -192,6 +195,10 @@ pub enum Token {
 
     LParen,
     RParen,
+    Colon,
+
+    Klet,
+    Kin,
 
     Ktrue,
     Kfalse,
@@ -226,6 +233,9 @@ impl std::fmt::Display for Token {
             GreaterEqual => write!(f, ">="),
             LParen => write!(f, "("),
             RParen => write!(f, ")"),
+            Colon => write!(f, ":"),
+            Klet => write!(f, "let"),
+            Kin => write!(f, "in"),
             Ktrue => write!(f, "true"),
             Kfalse => write!(f, "false"),
             Kand => write!(f, "and"),

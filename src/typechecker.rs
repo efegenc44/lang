@@ -1,29 +1,47 @@
 use crate::{
     common::*,
-    parser::{BinaryOp, Expression, UnaryOp},
+    parser::{BinaryOp, Expression, TypeExpr, UnaryOp},
 };
 
-pub struct TypeCheker {}
+pub struct TypeCheker {
+    env: Environment<Type>,
+}
 
 impl TypeCheker {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            env: Environment::new(),
+        }
     }
 
-    pub fn verify_type(&self, e: &Spanned<Expression>) -> TypeCheckResult {
+    pub fn verify_type(&mut self, e: &Spanned<Expression>) -> TypeCheckResult {
         use Expression::*;
 
         Ok(match &e.data {
+            Identifier(symbol) => match self.env.resolve(symbol) {
+                Some(ty) => ty.clone(),
+                None => {
+                    return Err(
+                        TypeCheckError::UndefinedIdentifier(symbol.clone()).spanned(e.span.clone())
+                    )
+                }
+            },
             NaturalNumber(_) => Type::Natural,
             RealNumber(_) => Type::Real,
             BoolValue(_) => Type::Bool,
             Binary { op, left, right } => self.verify_binary_op(op, left, right)?,
             Unary { op, operand } => self.verify_unary_op(op, operand)?,
+            Let {
+                name,
+                type_annot,
+                value,
+                expr,
+            } => self.verify_let_expr(name, type_annot, value, expr)?,
         })
     }
 
     fn verify_binary_op(
-        &self,
+        &mut self,
         op: &BinaryOp,
         left: &Spanned<Expression>,
         right: &Spanned<Expression>,
@@ -75,7 +93,7 @@ impl TypeCheker {
         })
     }
 
-    fn verify_unary_op(&self, op: &UnaryOp, operand: &Spanned<Expression>) -> TypeCheckResult {
+    fn verify_unary_op(&mut self, op: &UnaryOp, operand: &Spanned<Expression>) -> TypeCheckResult {
         use Type::*;
         use UnaryOp::*;
 
@@ -99,7 +117,43 @@ impl TypeCheker {
         })
     }
 
+    fn verify_let_expr(
+        &mut self,
+        name: &Spanned<Symbol>,
+        type_annot: &Option<Spanned<TypeExpr>>,
+        value: &Spanned<Expression>,
+        expr: &Spanned<Expression>,
+    ) -> TypeCheckResult {
+        let vtype = self.verify_type(value)?;
+
+        let vtype = if let Some(type_annot) = type_annot {
+            let annotated_type = Self::eval_type_e(type_annot)?;
+            Self::expect_type(&vtype, &annotated_type)
+                .map_err(|err| err.spanned(value.span.clone()))?;
+            annotated_type
+        } else {
+            vtype
+        };
+
+        self.env.define(name.data.clone(), vtype);
+        let texpr = self.verify_type(expr)?;
+        self.env.shallow();
+
+        Ok(texpr)
+    }
+
     fn expect_type(t: &Type, expected: &Type) -> Result<(), TypeCheckError> {
+        if expected.is_numeric() {
+            if t.is_subtype_of(expected) {
+                return Ok(());
+            } else {
+                return Err(TypeCheckError::MismatchedType {
+                    found: t.clone(),
+                    expected: expected.clone(),
+                });
+            }
+        }
+
         if t != expected {
             return Err(TypeCheckError::MismatchedType {
                 found: t.clone(),
@@ -115,6 +169,24 @@ impl TypeCheker {
         };
         Ok(())
     }
+
+    fn eval_type_e(e: &Spanned<TypeExpr>) -> TypeCheckResult {
+        use TypeExpr::*;
+
+        Ok(match &e.data {
+            Identifier(symbol) => match &**symbol {
+                "Nat" => Type::Natural,
+                "Int" => Type::Integer,
+                "Bool" => Type::Bool,
+                "Real" => Type::Real,
+                _ => {
+                    return Err(
+                        TypeCheckError::UndefinedTypeName(symbol.clone()).spanned(e.span.clone())
+                    )
+                }
+            },
+        })
+    }
 }
 
 type TypeCheckResult = Result<Type, Spanned<TypeCheckError>>;
@@ -124,6 +196,8 @@ pub enum TypeCheckError {
     ExpectedNumericType(Type),
     MismatchedType { found: Type, expected: Type },
     EqualityCheckOfDifferentTypes { left: Type, right: Type },
+    UndefinedTypeName(Symbol),
+    UndefinedIdentifier(Symbol),
 }
 
 impl HasSpan for TypeCheckError {}
@@ -136,6 +210,8 @@ impl Error for TypeCheckError {
             ExpectedNumericType(t) => format!("Expected an expression type one of `Natural`, `Integer`, or `Real` instead found `{t:?}`"),
             MismatchedType { found, expected } => format!("Expected an expression type of `{expected:?}` instead found `{found:?}`"),
             EqualityCheckOfDifferentTypes { left, right } => format!("Cannot determine the equality of different types: `{left:?}` == `{right:?}` "),
+            UndefinedTypeName(name) => format!("A type named `{name}` does not exist."),
+            UndefinedIdentifier(name) => format!("Identifier `{name}` was never defined."),
         }
     }
 }

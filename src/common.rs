@@ -70,3 +70,32 @@ macro_rules! repl_handle_error {
         }
     };
 }
+
+pub struct Environment<T> {
+    definitions: Vec<(Symbol, T)>,
+}
+
+impl<T> Environment<T> {
+    pub fn new() -> Self {
+        Self {
+            definitions: vec![],
+        }
+    }
+
+    pub fn shallow(&mut self) {
+        self.definitions.pop();
+    }
+
+    pub fn define(&mut self, name: Symbol, value: T) {
+        self.definitions.push((name, value));
+    }
+
+    pub fn resolve(&self, name: &Symbol) -> Option<&T> {
+        for (defined, value) in self.definitions.iter().rev() {
+            if defined == name {
+                return Some(value);
+            }
+        }
+        None
+    }
+}

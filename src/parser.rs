@@ -75,11 +75,52 @@ impl Parser {
         Ok(span)
     }
 
+    fn expect_identifier(&mut self) -> Result<Spanned<Symbol>, Spanned<ParseError>> {
+        let Token::Identifier(symbol) = self.current_token() else {
+            return Err(ParseError::ExpectedAnIdentifier(self.current_token().clone())
+                .spanned(self.get_span()));
+        };
+        let symbol = symbol.clone();
+        let span = self.get_span();
+        self.advance();
+        Ok(Spanned { data: symbol, span })
+    }
+
+    fn optional(&mut self, expected: Token) -> bool {
+        if self.current_token() == &expected {
+            self.advance();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn type_expr(&mut self) -> Result<Spanned<TypeExpr>, Spanned<ParseError>> {
+        use Token::*;
+
+        let current_token_span = self.get_span();
+        let expr = match self.current_token() {
+            Identifier(symbol) => TypeExpr::Identifier(symbol.clone()).spanned(current_token_span),
+            unexpected_token => {
+                return Err(
+                    ParseError::UnkownStartOfATypeExpression(unexpected_token.clone())
+                        .spanned(current_token_span),
+                )
+            }
+        };
+        self.advance();
+
+        Ok(expr)
+    }
+
     fn product(&mut self) -> ParseResult {
         use Token::*;
 
         let current_token_span = self.get_span();
         let expr = match self.current_token() {
+            Identifier(symbol) => {
+                Expression::Identifier(symbol.clone()).spanned(current_token_span)
+            }
             NaturalNumber(nat) => {
                 Expression::NaturalNumber(nat.clone()).spanned(current_token_span)
             }
@@ -123,9 +164,38 @@ impl Parser {
     #[rustfmt::skip]    binary_expr_precedence_level!(bool_and,   equality,   Token::Kand,                              LEFT_ASSOC);
     #[rustfmt::skip]    binary_expr_precedence_level!(bool_or,    bool_and,   Token::Kor,                               LEFT_ASSOC);
 
-    #[inline]
+    fn let_expr(&mut self) -> ParseResult {
+        use Token::*;
+
+        let start_span = self.expect(Klet)?;
+        let name = self.expect_identifier()?;
+
+        let type_annot = match self.optional(Colon) {
+            true => Some(self.type_expr()?),
+            false => None,
+        };
+
+        self.expect(Equal)?;
+        let value = Box::new(self.expr()?);
+        self.expect(Kin)?;
+        let expr = Box::new(self.expr()?);
+
+        Ok(Expression::Let {
+            name,
+            type_annot,
+            value,
+            expr,
+        }
+        .start_end(start_span, self.get_span()))
+    }
+
     fn expr(&mut self) -> ParseResult {
-        self.bool_or()
+        use Token::*;
+
+        match self.current_token() {
+            Klet => self.let_expr(),
+            _ => self.bool_or(),
+        }
     }
 
     pub fn parse(&mut self) -> ParseResult {
@@ -149,6 +219,8 @@ pub enum ParseError {
     UnknownStartOfAnExpression(Token),
     ExpectedADifferentToken { found: Token, expected: Token },
     UnconsumedTokenOrTokens(Token),
+    ExpectedAnIdentifier(Token),
+    UnkownStartOfATypeExpression(Token),
 }
 
 impl HasSpan for ParseError {}
@@ -170,11 +242,18 @@ impl Error for ParseError {
             UnconsumedTokenOrTokens(token) => {
                 format!("Parser couldn't consume all tokens. First of unconsumed tokens: `{token}`")
             }
+            ExpectedAnIdentifier(token) => {
+                format!("Expected an `Identifier`, instead found `{token}`")
+            }
+            UnkownStartOfATypeExpression(token) => {
+                format!("No type expression starts with this token: `{token}`")
+            }
         }
     }
 }
 
 pub enum Expression {
+    Identifier(Symbol),
     NaturalNumber(Symbol),
     RealNumber(Symbol),
     BoolValue(bool),
@@ -186,6 +265,12 @@ pub enum Expression {
     Unary {
         op: UnaryOp,
         operand: Box<Spanned<Expression>>,
+    },
+    Let {
+        name: Spanned<Symbol>,
+        type_annot: Option<Spanned<TypeExpr>>,
+        value: Box<Spanned<Expression>>,
+        expr: Box<Spanned<Expression>>,
     },
 }
 
@@ -209,6 +294,7 @@ impl Spanned<Expression> {
         }
 
         match &self.data {
+            Identifier(symbol) => pprint!("Ident: {symbol}"),
             NaturalNumber(nat) => pprint!("Nat: {nat}"),
             RealNumber(real) => pprint!("Real: {real}"),
             BoolValue(value) => pprint!("Bool: {value}"),
@@ -220,6 +306,17 @@ impl Spanned<Expression> {
             Unary { op, operand } => {
                 pprint!("Unary: {op:?}");
                 operand._pretty_print(depth + 1);
+            }
+            Let {
+                name,
+                type_annot,
+                value,
+                expr,
+            } => {
+                // TODO
+                pprint!("Let: ident: {} {:?}", name.data, type_annot);
+                value._pretty_print(depth + 1);
+                expr._pretty_print(depth + 1);
             }
         }
     }
@@ -280,3 +377,10 @@ impl From<&Token> for UnaryOp {
         }
     }
 }
+
+#[derive(Debug)]
+pub enum TypeExpr {
+    Identifier(Symbol),
+}
+
+impl HasSpan for TypeExpr {}

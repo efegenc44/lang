@@ -12,8 +12,8 @@ use parser::Parser;
 use typechecker::TypeCheker;
 
 fn main() -> io::Result<()> {
-    let engine = Engine::new();
-    let typechecker = TypeCheker::new();
+    let mut engine = Engine::new();
+    let mut typechecker = TypeCheker::new();
 
     let mut show_ast = false;
     let mut stdout = io::stdout();
