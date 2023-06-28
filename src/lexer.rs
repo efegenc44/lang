@@ -22,6 +22,14 @@ impl Iterator for Lexer {
             '-' => Minus,
             '*' => Star,
             '/' => Slash,
+            #[rustfmt::skip]
+            '!' => if self.peek_is('=') { BangEqual } else { Bang },
+            #[rustfmt::skip]
+            '=' => if self.peek_is('=') { DoubleEqual } else { Equal },
+            #[rustfmt::skip]
+            '<' => if self.peek_is('=') { LessEqual } else { Less },
+            #[rustfmt::skip]
+            '>' => if self.peek_is('=') { GreaterEqual } else { Greater },
             '(' => LParen,
             ')' => RParen,
             '\0' => End,
@@ -68,6 +76,15 @@ impl Lexer {
             self.advance();
         }
         res
+    }
+
+    fn peek_is(&mut self, expected: char) -> bool {
+        if self.chars[self.index + 1] == expected {
+            self.advance();
+            true
+        } else {
+            false
+        }
     }
 
     fn lex_number(&mut self) -> LexResult {
@@ -164,6 +181,14 @@ pub enum Token {
     Minus,
     Star,
     Slash,
+    Bang,
+    Equal,
+    DoubleEqual,
+    BangEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
 
     LParen,
     RParen,
@@ -191,6 +216,14 @@ impl std::fmt::Display for Token {
             Minus => write!(f, "-"),
             Star => write!(f, "*"),
             Slash => write!(f, "/"),
+            Bang => write!(f, "!"),
+            Equal => write!(f, "="),
+            DoubleEqual => write!(f, "=="),
+            BangEqual => write!(f, "!="),
+            Less => write!(f, "<"),
+            LessEqual => write!(f, "<="),
+            Greater => write!(f, ">"),
+            GreaterEqual => write!(f, ">="),
             LParen => write!(f, "("),
             RParen => write!(f, ")"),
             Ktrue => write!(f, "true"),

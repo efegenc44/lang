@@ -6,10 +6,29 @@ pub struct Parser {
 }
 
 macro_rules! binary_expr_precedence_level {
-    ( $name:ident; $inferior:ident; $operators:pat ) => {
+    ( $name:ident, $inferior:ident, $operators:pat, LEFT_ASSOC ) => {
         fn $name(&mut self) -> ParseResult {
             let mut left = self.$inferior()?;
             while let current_token @ $operators = self.current_token() {
+                let op = current_token.into();
+                self.advance();
+                let right = self.$inferior()?;
+                let (left_span, right_span) = (left.span.clone(), right.span.clone());
+                left = Expression::Binary {
+                    op,
+                    left: Box::new(left),
+                    right: Box::new(right),
+                }
+                .start_end(left_span, right_span)
+            }
+            Ok(left)
+        }
+    };
+
+    ( $name:ident, $inferior:ident, $operators:pat, NO_ASSOC ) => {
+        fn $name(&mut self) -> ParseResult {
+            let mut left = self.$inferior()?;
+            if let current_token @ $operators = self.current_token() {
                 let op = current_token.into();
                 self.advance();
                 let right = self.$inferior()?;
@@ -73,7 +92,7 @@ impl Parser {
                 let end_span = self.expect(RParen)?;
                 return Ok(expr.start_end(current_token_span, end_span));
             }
-            Minus => {
+            Bang | Minus => {
                 let op = self.current_token().into();
                 self.advance();
                 let operand = self.product()?;
@@ -96,11 +115,13 @@ impl Parser {
         Ok(expr)
     }
 
-    binary_expr_precedence_level!(term; product; Token::Star | Token::Slash);
-    binary_expr_precedence_level!(arithmetic; term; Token::Plus | Token::Minus);
-
-    binary_expr_precedence_level!(bool_and; arithmetic; Token::Kand);
-    binary_expr_precedence_level!(bool_or; bool_and; Token::Kor);
+    #[rustfmt::skip]    binary_expr_precedence_level!(term,       product,    Token::Star        | Token::Slash,        LEFT_ASSOC);
+    #[rustfmt::skip]    binary_expr_precedence_level!(arithmetic, term,       Token::Plus        | Token::Minus,        LEFT_ASSOC);
+    #[rustfmt::skip]    binary_expr_precedence_level!(comparison, arithmetic, Token::Less        | Token::LessEqual |
+                                                                              Token::Greater     | Token::GreaterEqual, NO_ASSOC);
+    #[rustfmt::skip]    binary_expr_precedence_level!(equality,   comparison, Token::DoubleEqual | Token::BangEqual,    NO_ASSOC);
+    #[rustfmt::skip]    binary_expr_precedence_level!(bool_and,   equality,   Token::Kand,                              LEFT_ASSOC);
+    #[rustfmt::skip]    binary_expr_precedence_level!(bool_or,    bool_and,   Token::Kor,                               LEFT_ASSOC);
 
     #[inline]
     fn expr(&mut self) -> ParseResult {
@@ -212,6 +233,12 @@ pub enum BinaryOp {
     Division,
     And,
     Or,
+    Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
 }
 
 impl From<&Token> for BinaryOp {
@@ -225,6 +252,12 @@ impl From<&Token> for BinaryOp {
             Slash => Self::Division,
             Kand => Self::And,
             Kor => Self::Or,
+            DoubleEqual => Self::Equal,
+            BangEqual => Self::NotEqual,
+            Less => Self::Less,
+            LessEqual => Self::LessEqual,
+            Greater => Self::Greater,
+            GreaterEqual => Self::GreaterEqual,
             _ => unreachable!(),
         }
     }
@@ -233,6 +266,7 @@ impl From<&Token> for BinaryOp {
 #[derive(Debug)]
 pub enum UnaryOp {
     Negation,
+    Not,
 }
 
 impl From<&Token> for UnaryOp {
@@ -241,6 +275,7 @@ impl From<&Token> for UnaryOp {
 
         match value {
             Minus => Self::Negation,
+            Bang => Self::Not,
             _ => unreachable!(),
         }
     }

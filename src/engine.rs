@@ -55,6 +55,12 @@ impl Engine {
             })?,
             And => lvalue & rvalue,
             Or => lvalue | rvalue,
+            Equal => Value::Bool(lvalue == rvalue),
+            NotEqual => Value::Bool(lvalue != rvalue),
+            Less => Value::Bool(lvalue < rvalue),
+            LessEqual => Value::Bool(lvalue <= rvalue),
+            Greater => Value::Bool(lvalue > rvalue),
+            GreaterEqual => Value::Bool(lvalue >= rvalue),
         })
     }
 
@@ -65,6 +71,7 @@ impl Engine {
 
         Ok(match op {
             Negation => -ovalue,
+            Not => !ovalue,
         })
     }
 }
@@ -88,6 +95,7 @@ impl Error for EvaluationError {
     }
 }
 
+#[derive(Clone)]
 pub enum Value {
     Natural(NaturalValue),
     Integer(IntegerValue),
@@ -223,6 +231,19 @@ impl std::ops::Neg for Value {
     }
 }
 
+impl std::ops::Not for Value {
+    type Output = Value;
+
+    fn not(self) -> Self::Output {
+        use Value::*;
+
+        match self {
+            Bool(value) => Bool(!value),
+            _ => unreachable!(),
+        }
+    }
+}
+
 impl std::ops::BitAnd for Value {
     type Output = Value;
 
@@ -249,6 +270,72 @@ impl std::ops::BitOr for Value {
     }
 }
 
+impl std::cmp::PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        use IntegerValue as iv;
+        use NaturalValue as nv;
+        use Value::*;
+
+        match (self, other) {
+            (Natural(lnat), Natural(rnat)) => match (lnat, rnat) {
+                (nv::Small(lsmall), nv::Small(rsmall)) => lsmall == rsmall,
+                // TODO: Consider doing comparison directly, without creating a new big num from small num
+                (nv::Small(small), nv::Big(big)) | (nv::Big(big), nv::Small(small)) => {
+                    &BigNat::from(*small) == big
+                }
+                (nv::Big(lbig), nv::Big(rbig)) => lbig == rbig,
+            },
+            (Integer(lint), Integer(rint)) => match (lint, rint) {
+                (iv::Small(lsmall), iv::Small(rsmall)) => lsmall == rsmall,
+                // TODO: Consider doing comparison directly, without creating a new big num from small num
+                (iv::Small(small), iv::Big(big)) | (iv::Big(big), iv::Small(small)) => {
+                    &BigInt::from(*small) == big
+                }
+                (iv::Big(lbig), iv::Big(rbig)) => lbig == rbig,
+            },
+            (Real(lreal), Real(rreal)) => lreal == rreal,
+            (Bool(lbool), Bool(rbool)) => lbool == rbool,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl std::cmp::Eq for Value {}
+
+impl std::cmp::Ord for Value {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        use IntegerValue as iv;
+        use NaturalValue as nv;
+        use Value::*;
+
+        match (self, other) {
+            // TODO: Ideally get rid of clones
+            any!(Real, lvalue, rvalue) => lvalue.clone().real().total_cmp(&rvalue.clone().real()),
+            // TODO: Ideally get rid of clones
+            any!(Integer, lvalue, rvalue) => match (lvalue.clone().int(), rvalue.clone().int()) {
+                (iv::Small(lsmall), iv::Small(rsmall)) => lsmall.cmp(&rsmall),
+                (iv::Small(small), iv::Big(big)) => BigInt::from(small).cmp(&big),
+                (iv::Big(big), iv::Small(small)) => big.cmp(&BigInt::from(small)),
+                (iv::Big(lbig), iv::Big(rbig)) => lbig.cmp(&rbig),
+            },
+            (Natural(lnat), Natural(rnat)) => match (lnat, rnat) {
+                (nv::Small(lsmall), nv::Small(rsmall)) => lsmall.cmp(rsmall),
+                (nv::Small(small), nv::Big(big)) => BigNat::from(*small).cmp(big),
+                (nv::Big(big), nv::Small(small)) => big.cmp(&BigNat::from(*small)),
+                (nv::Big(lbig), nv::Big(rbig)) => lbig.cmp(rbig),
+            },
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl std::cmp::PartialOrd for Value {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[derive(Clone)]
 pub enum NaturalValue {
     Small(Nat),
     Big(apnum::BigNat),
@@ -316,6 +403,7 @@ impl std::ops::Neg for NaturalValue {
     }
 }
 
+#[derive(Clone)]
 pub enum IntegerValue {
     Small(Int),
     Big(apnum::BigInt),
