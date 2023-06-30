@@ -51,28 +51,12 @@ impl Engine {
                 expr,
                 in_expr,
             } => self.evaluate_fun_expr(name, args, expr, in_expr)?,
-            FunctionCall { f, args } => {
-                let f = self.evaluate(f)?;
-                let arg_values = args
-                    .iter()
-                    .map(|arg| self.evaluate(arg))
-                    .collect::<Result<Vec<_>, _>>()?;
-
-                self.call_function(f, &arg_values)?
-            }
+            FunctionCall { f, args } => self.evaluate_function_call(f, args)?,
             If {
                 condition,
                 true_expr,
                 false_expr,
-            } => {
-                if self.evaluate(condition)?.bool() {
-                    self.evaluate(true_expr)?
-                } else if let Some(false_expr) = false_expr {
-                    self.evaluate(false_expr)?
-                } else {
-                    Value::Unit
-                }
-            }
+            } => self.evaluate_if_expr(condition, true_expr, false_expr)?,
         })
     }
 
@@ -158,6 +142,35 @@ impl Engine {
         let result = self.evaluate(in_expr)?;
         self.env.shallow(1);
         Ok(result)
+    }
+
+    fn evaluate_if_expr(
+        &mut self,
+        condition: &Spanned<Expression>,
+        true_expr: &Spanned<Expression>,
+        false_expr: &Option<Box<Spanned<Expression>>>,
+    ) -> EvaluationResult {
+        Ok(if self.evaluate(condition)?.bool() {
+            self.evaluate(true_expr)?
+        } else if let Some(false_expr) = false_expr {
+            self.evaluate(false_expr)?
+        } else {
+            Value::Unit
+        })
+    }
+
+    fn evaluate_function_call(
+        &mut self,
+        f: &Spanned<Expression>,
+        args: &[Spanned<Expression>],
+    ) -> EvaluationResult {
+        let f = self.evaluate(f)?;
+        let arg_values = args
+            .iter()
+            .map(|arg| self.evaluate(arg))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        self.call_function(f, &arg_values)
     }
 
     pub fn evaluate_top_level(&mut self, definitions: &Vec<Spanned<TopLevel>>) -> EvaluationResult {

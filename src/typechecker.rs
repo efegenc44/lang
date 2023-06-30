@@ -45,55 +45,12 @@ impl TypeCheker {
                 expr,
                 in_expr,
             } => self.verify_fun_expr(name, args, return_type, expr, in_expr)?,
-            FunctionCall { f, args } => {
-                let t = self.verify_type(f)?;
-                let Type::Function { arg_types, return_type } = t else {
-                    return Err(TypeCheckError::UncallableType(t).spanned(f.span.clone()))
-                };
-
-                let true = args.len() == arg_types.len() else {
-                    return Err(TypeCheckError::ArgumentNumberMismatch { found: args.len(), expected: arg_types.len() }.spanned(f.span.clone()))
-                };
-
-                for (arg, expected) in std::iter::zip(args, arg_types) {
-                    let arg_type = self.verify_type(arg)?;
-                    Self::expect_type(&arg_type, &expected)
-                        .map_err(|err| err.spanned(arg.span.clone()))?;
-                }
-
-                *return_type
-            }
+            FunctionCall { f, args } => self.verify_function_call(f, args)?,
             If {
                 condition,
                 true_expr,
                 false_expr,
-            } => {
-                let ctype = self.verify_type(condition)?;
-                Self::expect_type(&ctype, &Type::Bool)
-                    .map_err(|err| err.spanned(condition.span.clone()))?;
-
-                let ttrue = self.verify_type(true_expr)?;
-                let tfalse = match false_expr {
-                    Some(false_expr) => self.verify_type(false_expr)?,
-                    None => Type::Unit,
-                };
-
-                Self::expect_type(&ttrue, &tfalse).map_err(|_| {
-                    TypeCheckError::DifferentTypedBranches {
-                        true_branch: ttrue.clone(),
-                        false_branch: tfalse.clone(),
-                    }
-                    // TODO: fix span
-                    .spanned(condition.span.clone())
-                })?;
-
-                // TODO
-                if ttrue.is_subtype_of(&tfalse) {
-                    tfalse
-                } else {
-                    ttrue
-                }
-            }
+            } => self.verify_if_expr(condition, true_expr, false_expr)?,
         })
     }
 
@@ -132,22 +89,15 @@ impl TypeCheker {
                 Self::expect_type(&rtype, &Bool).map_err(|err| err.spanned(right.span.clone()))?;
                 Bool
             }
-            // TODO
             Equal | NotEqual => {
-                if (ltype.is_numeric() || rtype.is_numeric())
-                    && (ltype.is_subtype_of(&rtype) || rtype.is_subtype_of(&ltype))
-                {
-                    Bool
-                } else {
-                    Self::expect_type(&ltype, &rtype).map_err(|_| {
-                        TypeCheckError::EqualityCheckOfDifferentTypes {
-                            left: ltype,
-                            right: rtype,
-                        }
-                        .start_end(left.span.clone(), right.span.clone())
-                    })?;
-                    Bool
-                }
+                ltype.is_compatable_with(&rtype).ok_or_else(|| {
+                    TypeCheckError::EqualityCheckOfDifferentTypes {
+                        left: ltype,
+                        right: rtype,
+                    }
+                    .start_end(left.span.clone(), right.span.clone())
+                })?;
+                Bool
             }
             Less | LessEqual | Greater | GreaterEqual => {
                 Self::expect_numeric(&ltype).map_err(|err| err.spanned(left.span.clone()))?;
@@ -189,15 +139,13 @@ impl TypeCheker {
         value: &Spanned<Expression>,
         expr: &Spanned<Expression>,
     ) -> TypeCheckResult {
-        let vtype = self.verify_type(value)?;
-
         let vtype = if let Some(type_annot) = type_annot {
             let annotated_type = Self::eval_type_e(type_annot)?;
-            Self::expect_type(&vtype, &annotated_type)
+            Self::expect_type(&self.verify_type(value)?, &annotated_type)
                 .map_err(|err| err.spanned(value.span.clone()))?;
             annotated_type
         } else {
-            vtype
+            self.verify_type(value)?
         };
 
         self.env.define_local(name.data.clone(), vtype);
@@ -251,6 +199,53 @@ impl TypeCheker {
         Ok(result)
     }
 
+    fn verify_if_expr(
+        &mut self,
+        condition: &Spanned<Expression>,
+        true_expr: &Spanned<Expression>,
+        false_expr: &Option<Box<Spanned<Expression>>>,
+    ) -> TypeCheckResult {
+        Self::expect_type(&self.verify_type(condition)?, &Type::Bool)
+            .map_err(|err| err.spanned(condition.span.clone()))?;
+
+        let ttrue = self.verify_type(true_expr)?;
+        let tfalse = match false_expr {
+            Some(false_expr) => self.verify_type(false_expr)?,
+            None => Type::Unit,
+        };
+
+        ttrue.is_compatable_with(&tfalse).ok_or_else(|| {
+            TypeCheckError::DifferentTypedBranches {
+                true_branch: ttrue.clone(),
+                false_branch: tfalse.clone(),
+            }
+            // TODO: fix span
+            .spanned(condition.span.clone())
+        })
+    }
+
+    fn verify_function_call(
+        &mut self,
+        f: &Spanned<Expression>,
+        args: &[Spanned<Expression>],
+    ) -> TypeCheckResult {
+        let t = self.verify_type(f)?;
+        let Type::Function { arg_types, return_type } = t else {
+            return Err(TypeCheckError::UncallableType(t).spanned(f.span.clone()))
+        };
+
+        let true = args.len() == arg_types.len() else {
+            return Err(TypeCheckError::ArgumentNumberMismatch { found: args.len(), expected: arg_types.len() }.spanned(f.span.clone()))
+        };
+
+        for (arg, expected) in std::iter::zip(args, arg_types) {
+            let arg_type = self.verify_type(arg)?;
+            Self::expect_type(&arg_type, &expected).map_err(|err| err.spanned(arg.span.clone()))?;
+        }
+
+        Ok(*return_type)
+    }
+
     pub fn verify_top_level(&mut self, definitions: &Vec<Spanned<TopLevel>>) -> TypeCheckResult {
         use TopLevel::*;
 
@@ -294,14 +289,13 @@ impl TypeCheker {
                     type_annot,
                     value,
                 } => {
-                    let vtype = self.verify_type(value)?;
                     let vtype = if let Some(type_annot) = type_annot {
                         let annotated_type = Self::eval_type_e(type_annot)?;
-                        Self::expect_type(&vtype, &annotated_type)
+                        Self::expect_type(&self.verify_type(value)?, &annotated_type)
                             .map_err(|err| err.spanned(value.span.clone()))?;
                         annotated_type
                     } else {
-                        vtype
+                        self.verify_type(value)?
                     };
                     self.env.define_global(name.data.clone(), vtype);
                 }
@@ -345,45 +339,7 @@ impl TypeCheker {
     }
 
     fn expect_type(t: &Type, expected: &Type) -> Result<(), TypeCheckError> {
-        if expected.is_numeric() {
-            if t.is_subtype_of(expected) {
-                return Ok(());
-            } else {
-                return Err(TypeCheckError::MismatchedType {
-                    found: t.clone(),
-                    expected: expected.clone(),
-                });
-            }
-        }
-
-        // Clean here, probably better to implement eq for Type than doing this
-        if let (
-            Type::Function {
-                arg_types: arg_types1,
-                return_type: return_type1,
-            },
-            Type::Function {
-                arg_types: arg_types2,
-                return_type: return_type2,
-            },
-        ) = (t, expected)
-        {
-            if arg_types1.len() != arg_types2.len() {
-                return Err(TypeCheckError::MismatchedType {
-                    found: t.clone(),
-                    expected: expected.clone(),
-                });
-            }
-
-            for (found, expected) in std::iter::zip(arg_types1, arg_types2) {
-                Self::expect_type(found, expected)?;
-            }
-
-            Self::expect_type(return_type1, return_type2)?;
-            return Ok(());
-        }
-
-        if t != expected {
+        if !t.is_subtype_of(expected) {
             return Err(TypeCheckError::MismatchedType {
                 found: t.clone(),
                 expected: expected.clone(),
@@ -485,7 +441,7 @@ impl Error for TypeCheckError {
             EntryPointNotProvided => "Entry point (main) for the program is not provided".to_string(),
             UncallableType(t) => format!("Cannot call a `{t}`, only functions are callable"),
             ArgumentNumberMismatch { found, expected } => format!("Expected `{expected}` number of arguments instead found `{found}` number of arguments"),
-            DifferentTypedBranches { true_branch, false_branch } => format!("Branches of if expression have different types: `{true_branch}` and `{false_branch}`"),
+            DifferentTypedBranches { true_branch, false_branch } => format!("Branches of if expression have uncompatable types: `{true_branch}` and `{false_branch}`"),
         }
     }
 }
@@ -510,6 +466,19 @@ impl Type {
         match self {
             Natural => matches!(super_type, Natural | Integer | Real),
             Integer => matches!(super_type, Integer | Real),
+            Function {
+                arg_types,
+                return_type,
+            } => {
+                let Function { arg_types: sargs_types, return_type: sreturn_type } = super_type else {
+                    return false;
+                };
+
+                arg_types.len() == sargs_types.len()
+                    && std::iter::zip(arg_types, sargs_types)
+                        .all(|(arg_type, sarg_type)| arg_type.is_subtype_of(sarg_type))
+                    && return_type.is_subtype_of(sreturn_type)
+            }
             candidate => candidate == super_type,
         }
     }
@@ -525,6 +494,16 @@ impl Type {
             self.clone()
         } else {
             ty
+        }
+    }
+
+    fn is_compatable_with(&self, other: &Type) -> Option<Type> {
+        if self.is_subtype_of(other) {
+            Some(other.clone())
+        } else if other.is_subtype_of(self) {
+            Some(self.clone())
+        } else {
+            None
         }
     }
 }
