@@ -455,8 +455,6 @@ impl std::ops::BitOr for Value {
 
 impl std::cmp::PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        use IntegerValue as iv;
-        use NaturalValue as nv;
         use Value::*;
 
         match (self, other) {
@@ -466,22 +464,8 @@ impl std::cmp::PartialEq for Value {
             // TODO: Ideally get rid of clones
             any!(Real, lvalue, rvalue) => lvalue.clone().real() == rvalue.clone().real(),
             // TODO: Ideally get rid of clones
-            any!(Integer, lvalue, rvalue) => match (lvalue.clone().int(), rvalue.clone().int()) {
-                (iv::Small(lsmall), iv::Small(rsmall)) => lsmall == rsmall,
-                // TODO: Consider doing comparison directly, without creating a new big num from small num
-                (iv::Small(small), iv::Big(big)) | (iv::Big(big), iv::Small(small)) => {
-                    BigInt::from(small) == big
-                }
-                (iv::Big(lbig), iv::Big(rbig)) => lbig == rbig,
-            },
-            (Natural(lnat), Natural(rnat)) => match (lnat, rnat) {
-                (nv::Small(lsmall), nv::Small(rsmall)) => lsmall == rsmall,
-                // TODO: Consider doing comparison directly, without creating a new big num from small num
-                (nv::Small(small), nv::Big(big)) | (nv::Big(big), nv::Small(small)) => {
-                    &BigNat::from(*small) == big
-                }
-                (nv::Big(lbig), nv::Big(rbig)) => lbig == rbig,
-            },
+            any!(Integer, lvalue, rvalue) => lvalue.clone().int() == rvalue.clone().int(),
+            (Natural(lnat), Natural(rnat)) => lnat == rnat,
             _ => unreachable!(),
         }
     }
@@ -491,26 +475,14 @@ impl std::cmp::Eq for Value {}
 
 impl std::cmp::Ord for Value {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        use IntegerValue as iv;
-        use NaturalValue as nv;
         use Value::*;
 
         match (self, other) {
             // TODO: Ideally get rid of clones
             any!(Real, lvalue, rvalue) => lvalue.clone().real().total_cmp(&rvalue.clone().real()),
             // TODO: Ideally get rid of clones
-            any!(Integer, lvalue, rvalue) => match (lvalue.clone().int(), rvalue.clone().int()) {
-                (iv::Small(lsmall), iv::Small(rsmall)) => lsmall.cmp(&rsmall),
-                (iv::Small(small), iv::Big(big)) => BigInt::from(small).cmp(&big),
-                (iv::Big(big), iv::Small(small)) => big.cmp(&BigInt::from(small)),
-                (iv::Big(lbig), iv::Big(rbig)) => lbig.cmp(&rbig),
-            },
-            (Natural(lnat), Natural(rnat)) => match (lnat, rnat) {
-                (nv::Small(lsmall), nv::Small(rsmall)) => lsmall.cmp(rsmall),
-                (nv::Small(small), nv::Big(big)) => BigNat::from(*small).cmp(big),
-                (nv::Big(big), nv::Small(small)) => big.cmp(&BigNat::from(*small)),
-                (nv::Big(lbig), nv::Big(rbig)) => lbig.cmp(rbig),
-            },
+            any!(Integer, lvalue, rvalue) => lvalue.clone().int().cmp(&rvalue.clone().int()),
+            (Natural(lnat), Natural(rnat)) => lnat.cmp(rnat),
             _ => unreachable!(),
         }
     }
@@ -587,6 +559,42 @@ impl std::ops::Neg for NaturalValue {
             },
             Big(int) => iv::Big(-BigInt::from(int)),
         }
+    }
+}
+
+impl std::cmp::PartialEq for NaturalValue {
+    fn eq(&self, other: &Self) -> bool {
+        use NaturalValue::*;
+
+        match (self, other) {
+            (Small(lsmall), Small(rsmall)) => lsmall == rsmall,
+            // TODO: Consider doing comparison directly, without creating a new big num from small num
+            (Small(small), Big(big)) | (Big(big), Small(small)) => {
+                &BigNat::from(*small) == big
+            }
+            (Big(lbig), Big(rbig)) => lbig == rbig,
+        }
+    }
+}
+
+impl std::cmp::Eq for NaturalValue {}
+
+impl std::cmp::Ord for NaturalValue {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        use NaturalValue::*; 
+
+        match (self, other) {
+            (Small(lsmall), Small(rsmall)) => lsmall.cmp(rsmall),
+            (Small(small), Big(big)) => BigNat::from(*small).cmp(big),
+            (Big(big), Small(small)) => big.cmp(&BigNat::from(*small)),
+            (Big(lbig), Big(rbig)) => lbig.cmp(rbig),
+        }
+    }
+} 
+
+impl std::cmp::PartialOrd for NaturalValue {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -672,5 +680,41 @@ impl std::ops::Neg for IntegerValue {
             },
             Big(int) => Big(-int),
         }
+    }
+}
+
+impl std::cmp::PartialEq for IntegerValue {
+    fn eq(&self, other: &Self) -> bool {
+        use IntegerValue::*;
+
+        match (self, other) {
+            (Small(lsmall), Small(rsmall)) => lsmall == rsmall,
+            // TODO: Consider doing comparison directly, without creating a new big num from small num
+            (Small(small), Big(big)) | (Big(big), Small(small)) => {
+                &BigInt::from(*small) == big
+            }
+            (Big(lbig), Big(rbig)) => lbig == rbig,
+        }
+    }
+}
+
+impl std::cmp::Eq for IntegerValue {}
+
+impl std::cmp::Ord for IntegerValue {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        use IntegerValue::*;
+
+        match (self, other) {
+            (Small(lsmall), Small(rsmall)) => lsmall.cmp(&rsmall),
+            (Small(small), Big(big)) => BigInt::from(*small).cmp(&big),
+            (Big(big), Small(small)) => big.cmp(&BigInt::from(*small)),
+            (Big(lbig), Big(rbig)) => lbig.cmp(&rbig),
+        }
+    }
+}
+
+impl std::cmp::PartialOrd for IntegerValue {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
