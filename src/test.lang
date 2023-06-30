@@ -1,5 +1,14 @@
-fun main() -> fun(Real) -> Real =
-    square
+fun main() =
+    factorial(30) ; fib(25) ; ()
 
-fun square(a: Nat) -> Real =
-    a * a
+fun fib(n: Int) -> Nat =
+    if n <= 2 
+        1
+    else
+        fib(n - 1) + fib(n - 2)
+
+fun factorial(n: Int) -> Int =
+    if n <= 1
+        1
+    else
+        n * factorial(n - 1)

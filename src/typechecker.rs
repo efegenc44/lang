@@ -63,6 +63,37 @@ impl TypeCheker {
 
                 *return_type
             }
+            If {
+                condition,
+                true_expr,
+                false_expr,
+            } => {
+                let ctype = self.verify_type(condition)?;
+                Self::expect_type(&ctype, &Type::Bool)
+                    .map_err(|err| err.spanned(condition.span.clone()))?;
+
+                let ttrue = self.verify_type(true_expr)?;
+                let tfalse = match false_expr {
+                    Some(false_expr) => self.verify_type(false_expr)?,
+                    None => Type::Unit,
+                };
+
+                Self::expect_type(&ttrue, &tfalse).map_err(|_| {
+                    TypeCheckError::DifferentTypedBranches {
+                        true_branch: ttrue.clone(),
+                        false_branch: tfalse.clone(),
+                    }
+                    // TODO: fix span
+                    .spanned(condition.span.clone())
+                })?;
+
+                // TODO
+                if ttrue.is_subtype_of(&tfalse) {
+                    tfalse
+                } else {
+                    ttrue
+                }
+            }
         })
     }
 
@@ -425,6 +456,10 @@ pub enum TypeCheckError {
         found: usize,
         expected: usize,
     },
+    DifferentTypedBranches {
+        true_branch: Type,
+        false_branch: Type,
+    },
 }
 
 impl HasSpan for TypeCheckError {}
@@ -443,6 +478,7 @@ impl Error for TypeCheckError {
             EntryPointNotProvided => "Entry point (main) for the program is not provided".to_string(),
             UncallableType(t) => format!("Cannot call a `{t}`, only functions are callable"),
             ArgumentNumberMismatch { found, expected } => format!("Expected `{expected}` number of arguments instead found `{found}` number of arguments"),
+            DifferentTypedBranches { true_branch, false_branch } => format!("Branches of if expression have different types: `{true_branch}` and `{false_branch}`"),
         }
     }
 }

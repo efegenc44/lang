@@ -263,12 +263,32 @@ impl Parser {
         .start_end(start_span, self.get_span()))
     }
 
+    fn if_expr(&mut self) -> ParseResult {
+        use Token::*;
+
+        let start_span = self.expect(Kif)?;
+        let condition = Box::new(self.expr()?);
+        let true_expr = Box::new(self.expr()?);
+        let false_expr = match self.optional(Kelse) {
+            true => Some(Box::new(self.expr()?)),
+            false => None,
+        };
+
+        Ok(Expression::If {
+            condition,
+            true_expr,
+            false_expr,
+        }
+        .start_end(start_span, self.get_span()))
+    }
+
     fn expr(&mut self) -> ParseResult {
         use Token::*;
 
         match self.current_token() {
             Klet => self.let_expr(),
             Kfun => self.fun_expr(),
+            Kif => self.if_expr(),
             _ => self.sequence(),
         }
     }
@@ -450,6 +470,11 @@ pub enum Expression {
         f: Box<Spanned<Expression>>,
         args: Vec<Spanned<Expression>>,
     },
+    If {
+        condition: Box<Spanned<Expression>>,
+        true_expr: Box<Spanned<Expression>>,
+        false_expr: Option<Box<Spanned<Expression>>>,
+    },
 }
 
 impl HasSpan for Expression {}
@@ -530,6 +555,12 @@ impl Spanned<Expression> {
                     arg._pretty_print(depth + 2);
                 }
             }
+            // TODO
+            If {
+                condition: _,
+                true_expr: _,
+                false_expr: _,
+            } => todo!(),
         }
     }
 }

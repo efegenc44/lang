@@ -60,6 +60,19 @@ impl Engine {
 
                 self.call_function(f, &arg_values)?
             }
+            If {
+                condition,
+                true_expr,
+                false_expr,
+            } => {
+                if self.evaluate(condition)?.bool() {
+                    self.evaluate(true_expr)?
+                } else if let Some(false_expr) = false_expr {
+                    self.evaluate(false_expr)?
+                } else {
+                    Value::Unit
+                }
+            }
         })
     }
 
@@ -265,6 +278,15 @@ impl std::fmt::Display for Value {
 }
 
 impl Value {
+    fn bool(self) -> bool {
+        use Value::*;
+
+        match self {
+            Bool(bool) => bool,
+            _ => unreachable!(),
+        }
+    }
+
     fn real(self) -> Real {
         use IntegerValue as iv;
         use NaturalValue as nv;
@@ -424,6 +446,7 @@ impl std::cmp::PartialEq for Value {
         use NaturalValue as nv;
         use Value::*;
 
+        // Fix equality for numeric types
         match (self, other) {
             (Natural(lnat), Natural(rnat)) => match (lnat, rnat) {
                 (nv::Small(lsmall), nv::Small(rsmall)) => lsmall == rsmall,
@@ -443,7 +466,13 @@ impl std::cmp::PartialEq for Value {
             },
             (Real(lreal), Real(rreal)) => lreal == rreal,
             (Bool(lbool), Bool(rbool)) => lbool == rbool,
-            _ => unreachable!(),
+            _ => {
+                println!("{self}, {other}");
+                let Integer(_) = self else {
+                    unreachable!();
+                };
+                unreachable!()
+            },
         }
     }
 }
