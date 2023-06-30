@@ -101,6 +101,28 @@ impl Parser {
         let current_token_span = self.get_span();
         let expr = match self.current_token() {
             Identifier(symbol) => TypeExpr::Identifier(symbol.clone()).spanned(current_token_span),
+            LParen => {
+                self.advance();
+                if self.optional(RParen) {
+                    return Ok(TypeExpr::UnitValue.start_end(current_token_span, self.get_span()));
+                }
+                let expr = self.type_expr()?.data;
+                let end_span = self.expect(RParen)?;
+                return Ok(expr.start_end(current_token_span, end_span));
+            }
+            Kfun => {
+                self.advance();
+                let arg_types = self.parse_comma_seperated(Self::type_expr)?;
+                let return_type = match self.optional(Arrow) {
+                    true => Some(Box::new(self.type_expr()?)),
+                    false => None,
+                };
+                return Ok(TypeExpr::Function {
+                    arg_types,
+                    return_type,
+                }
+                .start_end(current_token_span, self.get_span()));
+            }
             unexpected_token => {
                 return Err(
                     ParseError::UnkownStartOfATypeExpression(unexpected_token.clone())
@@ -129,6 +151,9 @@ impl Parser {
             Kfalse => Expression::BoolValue(false).spanned(current_token_span),
             LParen => {
                 self.advance();
+                if self.optional(RParen) {
+                    return Ok(Expression::UnitValue.start_end(current_token_span, self.get_span()));
+                }
                 let expr = self.expr()?.data;
                 let end_span = self.expect(RParen)?;
                 return Ok(expr.start_end(current_token_span, end_span));
@@ -156,13 +181,37 @@ impl Parser {
         Ok(expr)
     }
 
-    #[rustfmt::skip]    binary_expr_precedence_level!(term,       product,    Token::Star        | Token::Slash,        LEFT_ASSOC);
+    fn call_expr(&mut self) -> ParseResult {
+        use Token::*;
+
+        let mut expr = self.product()?;
+        #[allow(clippy::while_let_loop)]
+        loop {
+            match self.current_token() {
+                LParen => {
+                    let start_span = expr.span.clone();
+                    let args = self.parse_comma_seperated(Self::expr)?;
+                    expr = Expression::FunctionCall {
+                        f: Box::new(expr),
+                        args,
+                    }
+                    .start_end(start_span, self.get_span());
+                }
+                _ => break,
+            }
+        }
+
+        Ok(expr)
+    }
+
+    #[rustfmt::skip]    binary_expr_precedence_level!(term,       call_expr,  Token::Star        | Token::Slash,        LEFT_ASSOC);
     #[rustfmt::skip]    binary_expr_precedence_level!(arithmetic, term,       Token::Plus        | Token::Minus,        LEFT_ASSOC);
     #[rustfmt::skip]    binary_expr_precedence_level!(comparison, arithmetic, Token::Less        | Token::LessEqual |
                                                                               Token::Greater     | Token::GreaterEqual, NO_ASSOC);
     #[rustfmt::skip]    binary_expr_precedence_level!(equality,   comparison, Token::DoubleEqual | Token::BangEqual,    NO_ASSOC);
     #[rustfmt::skip]    binary_expr_precedence_level!(bool_and,   equality,   Token::Kand,                              LEFT_ASSOC);
     #[rustfmt::skip]    binary_expr_precedence_level!(bool_or,    bool_and,   Token::Kor,                               LEFT_ASSOC);
+    #[rustfmt::skip]    binary_expr_precedence_level!(sequence,   bool_or,    Token::SemiColon,                         LEFT_ASSOC);
 
     fn let_expr(&mut self) -> ParseResult {
         use Token::*;
@@ -189,16 +238,42 @@ impl Parser {
         .start_end(start_span, self.get_span()))
     }
 
+    fn fun_expr(&mut self) -> ParseResult {
+        use Token::*;
+
+        let start_span = self.expect(Kfun)?;
+        let name = self.expect_identifier()?;
+        let args = self.parse_comma_seperated(Self::typed_identifier)?;
+        let return_type = match self.optional(Arrow) {
+            true => Some(self.type_expr()?),
+            false => None,
+        };
+        self.expect(Equal)?;
+        let expr = Box::new(self.expr()?);
+        self.expect(Kin)?;
+        let in_expr = Box::new(self.expr()?);
+
+        Ok(Expression::Fun {
+            name,
+            args,
+            return_type,
+            expr,
+            in_expr,
+        }
+        .start_end(start_span, self.get_span()))
+    }
+
     fn expr(&mut self) -> ParseResult {
         use Token::*;
 
         match self.current_token() {
             Klet => self.let_expr(),
-            _ => self.bool_or(),
+            Kfun => self.fun_expr(),
+            _ => self.sequence(),
         }
     }
 
-    pub fn parse(&mut self) -> ParseResult {
+    pub fn parse_expr(&mut self) -> ParseResult {
         let ast = self.expr()?;
 
         if self.index != self.tokens.len() - 1 {
@@ -209,6 +284,94 @@ impl Parser {
         }
 
         Ok(ast)
+    }
+
+    pub fn parse_top_level(&mut self) -> Result<Vec<Spanned<TopLevel>>, Spanned<ParseError>> {
+        use Token::*;
+
+        let mut definitions = vec![];
+        loop {
+            let def = match self.current_token() {
+                Klet => self.top_level_let()?,
+                Kfun => self.top_level_fun()?,
+                End => break,
+                invalid => {
+                    return Err(ParseError::InvalidTopLevelElement(invalid.clone())
+                        .spanned(self.get_span()))
+                }
+            };
+            definitions.push(def);
+        }
+        Ok(definitions)
+    }
+
+    fn top_level_let(&mut self) -> Result<Spanned<TopLevel>, Spanned<ParseError>> {
+        use Token::*;
+
+        let start_span = self.expect(Klet)?;
+        let name = self.expect_identifier()?;
+        let type_annot = match self.optional(Colon) {
+            true => Some(self.type_expr()?),
+            false => None,
+        };
+        self.expect(Equal)?;
+        let value = Box::new(self.expr()?);
+
+        Ok(TopLevel::Let {
+            name,
+            type_annot,
+            value,
+        }
+        .start_end(start_span, self.get_span()))
+    }
+
+    fn top_level_fun(&mut self) -> Result<Spanned<TopLevel>, Spanned<ParseError>> {
+        use Token::*;
+
+        let start_span = self.expect(Kfun)?;
+        let name = self.expect_identifier()?;
+        let args = self.parse_comma_seperated(Self::typed_identifier)?;
+        let return_type = match self.optional(Arrow) {
+            true => Some(self.type_expr()?),
+            false => None,
+        };
+        self.expect(Equal)?;
+        let expr = self.expr()?;
+
+        Ok(TopLevel::Fun {
+            name,
+            args,
+            return_type,
+            expr,
+        }
+        .start_end(start_span, self.get_span()))
+    }
+
+    fn typed_identifier(
+        &mut self,
+    ) -> Result<(Spanned<Symbol>, Spanned<TypeExpr>), Spanned<ParseError>> {
+        let arg_name = self.expect_identifier()?;
+        self.expect(Token::Colon)?;
+        let type_annot = self.type_expr()?;
+        Ok((arg_name, type_annot))
+    }
+
+    fn parse_comma_seperated<T>(
+        &mut self,
+        f: fn(&mut Self) -> Result<T, Spanned<ParseError>>,
+    ) -> Result<Vec<T>, Spanned<ParseError>> {
+        use Token::*;
+
+        let mut values = vec![];
+        self.expect(LParen)?;
+        if !self.optional(RParen) {
+            values.push(f(self)?);
+            while !self.optional(RParen) {
+                self.expect(Comma)?;
+                values.push(f(self)?);
+            }
+        }
+        Ok(values)
     }
 }
 
@@ -221,6 +384,7 @@ pub enum ParseError {
     UnconsumedTokenOrTokens(Token),
     ExpectedAnIdentifier(Token),
     UnkownStartOfATypeExpression(Token),
+    InvalidTopLevelElement(Token),
 }
 
 impl HasSpan for ParseError {}
@@ -248,15 +412,18 @@ impl Error for ParseError {
             UnkownStartOfATypeExpression(token) => {
                 format!("No type expression starts with this token: `{token}`")
             }
+            InvalidTopLevelElement(token) => format!("Only `let` and `fun` definitions are allowed for top-level, invalid token: `{token}`"),
         }
     }
 }
 
+#[derive(Clone)]
 pub enum Expression {
     Identifier(Symbol),
     NaturalNumber(Symbol),
     RealNumber(Symbol),
     BoolValue(bool),
+    UnitValue,
     Binary {
         op: BinaryOp,
         left: Box<Spanned<Expression>>,
@@ -272,9 +439,37 @@ pub enum Expression {
         value: Box<Spanned<Expression>>,
         expr: Box<Spanned<Expression>>,
     },
+    Fun {
+        name: Spanned<Symbol>,
+        args: Vec<(Spanned<Symbol>, Spanned<TypeExpr>)>,
+        return_type: Option<Spanned<TypeExpr>>,
+        expr: Box<Spanned<Expression>>,
+        in_expr: Box<Spanned<Expression>>,
+    },
+    FunctionCall {
+        f: Box<Spanned<Expression>>,
+        args: Vec<Spanned<Expression>>,
+    },
 }
 
 impl HasSpan for Expression {}
+
+#[derive(Clone)]
+pub enum TopLevel {
+    Let {
+        name: Spanned<Symbol>,
+        type_annot: Option<Spanned<TypeExpr>>,
+        value: Box<Spanned<Expression>>,
+    },
+    Fun {
+        name: Spanned<Symbol>,
+        args: Vec<(Spanned<Symbol>, Spanned<TypeExpr>)>,
+        return_type: Option<Spanned<TypeExpr>>,
+        expr: Spanned<Expression>,
+    },
+}
+
+impl HasSpan for TopLevel {}
 
 impl Spanned<Expression> {
     pub fn pretty_print(&self) {
@@ -298,6 +493,7 @@ impl Spanned<Expression> {
             NaturalNumber(nat) => pprint!("Nat: {nat}"),
             RealNumber(real) => pprint!("Real: {real}"),
             BoolValue(value) => pprint!("Bool: {value}"),
+            UnitValue => pprint!("()"),
             Binary { op, left, right } => {
                 pprint!("Binary: {op:?}");
                 left._pretty_print(depth + 1);
@@ -318,11 +514,27 @@ impl Spanned<Expression> {
                 value._pretty_print(depth + 1);
                 expr._pretty_print(depth + 1);
             }
+            // TODO
+            Fun {
+                name: _,
+                args: _,
+                return_type: _,
+                expr: _,
+                in_expr: _,
+            } => todo!(),
+            FunctionCall { f, args } => {
+                // TODO
+                pprint!("Function Call:");
+                f._pretty_print(depth + 1);
+                for arg in args {
+                    arg._pretty_print(depth + 2);
+                }
+            }
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BinaryOp {
     Addition,
     Subtraction,
@@ -336,6 +548,7 @@ pub enum BinaryOp {
     LessEqual,
     Greater,
     GreaterEqual,
+    Sequence,
 }
 
 impl From<&Token> for BinaryOp {
@@ -355,12 +568,13 @@ impl From<&Token> for BinaryOp {
             LessEqual => Self::LessEqual,
             Greater => Self::Greater,
             GreaterEqual => Self::GreaterEqual,
+            SemiColon => Self::Sequence,
             _ => unreachable!(),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum UnaryOp {
     Negation,
     Not,
@@ -378,9 +592,14 @@ impl From<&Token> for UnaryOp {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TypeExpr {
     Identifier(Symbol),
+    Function {
+        arg_types: Vec<Spanned<TypeExpr>>,
+        return_type: Option<Box<Spanned<TypeExpr>>>,
+    },
+    UnitValue,
 }
 
 impl HasSpan for TypeExpr {}

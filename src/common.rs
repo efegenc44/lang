@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 pub type Nat = usize;
 pub type Int = isize;
 pub type Span = std::ops::Range<Nat>;
@@ -8,7 +10,7 @@ pub type Real = f64;
 #[cfg(target_pointer_width = "32")]
 pub type Real = f32;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Spanned<Data> {
     pub data: Data,
     pub span: Span,
@@ -71,31 +73,56 @@ macro_rules! repl_handle_error {
     };
 }
 
+#[macro_export]
+macro_rules! file_handle_error {
+    ($e:expr) => {
+        match $e {
+            Ok(data) => data,
+            Err(error) => {
+                println!("{error}");
+                std::process::exit(1);
+            }
+        }
+    };
+}
+
 pub struct Environment<T> {
-    definitions: Vec<(Symbol, T)>,
+    global: HashMap<Symbol, T>,
+    locals: Vec<(Symbol, T)>,
 }
 
 impl<T> Environment<T> {
     pub fn new() -> Self {
         Self {
-            definitions: vec![],
+            global: HashMap::new(),
+            locals: vec![],
         }
     }
 
-    pub fn shallow(&mut self) {
-        self.definitions.pop();
+    pub fn shallow(&mut self, n: usize) {
+        for _ in 0..n {
+            self.locals.pop();
+        }
     }
 
-    pub fn define(&mut self, name: Symbol, value: T) {
-        self.definitions.push((name, value));
+    pub fn define_global(&mut self, name: Symbol, value: T) {
+        self.global.insert(name, value);
+    }
+
+    pub fn define_local(&mut self, name: Symbol, value: T) {
+        self.locals.push((name, value));
+    }
+
+    pub fn resolve_global(&self, name: &str) -> Option<&T> {
+        self.global.get(name)
     }
 
     pub fn resolve(&self, name: &Symbol) -> Option<&T> {
-        for (defined, value) in self.definitions.iter().rev() {
+        for (defined, value) in self.locals.iter().rev() {
             if defined == name {
                 return Some(value);
             }
         }
-        None
+        self.resolve_global(name)
     }
 }

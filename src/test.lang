@@ -1,0 +1,5 @@
+fun main() -> fun(Real) -> Real =
+    square
+
+fun square(a: Nat) -> Real =
+    a * a

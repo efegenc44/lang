@@ -1,6 +1,6 @@
 use crate::{
     common::*,
-    parser::{BinaryOp, Expression, TypeExpr, UnaryOp},
+    parser::{BinaryOp, Expression, TopLevel, TypeExpr, UnaryOp},
 };
 
 pub struct TypeCheker {
@@ -29,6 +29,7 @@ impl TypeCheker {
             NaturalNumber(_) => Type::Natural,
             RealNumber(_) => Type::Real,
             BoolValue(_) => Type::Bool,
+            UnitValue => Type::Unit,
             Binary { op, left, right } => self.verify_binary_op(op, left, right)?,
             Unary { op, operand } => self.verify_unary_op(op, operand)?,
             Let {
@@ -37,6 +38,31 @@ impl TypeCheker {
                 value,
                 expr,
             } => self.verify_let_expr(name, type_annot, value, expr)?,
+            Fun {
+                name,
+                args,
+                return_type,
+                expr,
+                in_expr,
+            } => self.verify_fun_expr(name, args, return_type, expr, in_expr)?,
+            FunctionCall { f, args } => {
+                let t = self.verify_type(f)?;
+                let Type::Function { arg_types, return_type } = t else {
+                    return Err(TypeCheckError::UncallableType(t).spanned(f.span.clone()))
+                };
+
+                let true = args.len() == arg_types.len() else {
+                    return Err(TypeCheckError::ArgumentNumberMismatch { found: args.len(), expected: arg_types.len() }.spanned(f.span.clone()))
+                };
+
+                for (arg, expected) in std::iter::zip(args, arg_types) {
+                    let arg_type = self.verify_type(arg)?;
+                    Self::expect_type(&arg_type, &expected)
+                        .map_err(|err| err.spanned(arg.span.clone()))?;
+                }
+
+                *return_type
+            }
         })
     }
 
@@ -90,6 +116,7 @@ impl TypeCheker {
                 Self::expect_numeric(&rtype).map_err(|err| err.spanned(right.span.clone()))?;
                 Bool
             }
+            Sequence => rtype,
         })
     }
 
@@ -135,11 +162,148 @@ impl TypeCheker {
             vtype
         };
 
-        self.env.define(name.data.clone(), vtype);
+        self.env.define_local(name.data.clone(), vtype);
         let texpr = self.verify_type(expr)?;
-        self.env.shallow();
+        self.env.shallow(1);
 
         Ok(texpr)
+    }
+
+    fn verify_fun_expr(
+        &mut self,
+        name: &Spanned<Symbol>,
+        args: &Vec<(Spanned<Symbol>, Spanned<TypeExpr>)>,
+        return_type: &Option<Spanned<TypeExpr>>,
+        expr: &Spanned<Expression>,
+        in_expr: &Spanned<Expression>,
+    ) -> TypeCheckResult {
+        let arg_types = args
+            .iter()
+            .map(|(_, type_annot)| Self::eval_type_e(type_annot))
+            .collect::<Result<Vec<Type>, _>>()?;
+
+        let return_type = Box::new(match return_type {
+            Some(return_type) => Self::eval_type_e(return_type)?,
+            _ => Type::Unit,
+        });
+
+        let t = Type::Function {
+            arg_types: arg_types.clone(),
+            return_type: return_type.clone(),
+        };
+
+        self.env.define_local(name.data.clone(), t);
+        for (index, arg_type) in arg_types.into_iter().enumerate() {
+            self.env.define_local(args[index].0.data.clone(), arg_type);
+        }
+
+        let ftype = self.verify_type(expr)?;
+        Self::expect_type(&ftype, &return_type).map_err(|_| {
+            TypeCheckError::UnexpectedReturnType {
+                function_name: name.data.clone(),
+                found: ftype,
+                expected: *return_type,
+            }
+            .spanned(name.span.clone())
+        })?;
+
+        self.env.shallow(args.len());
+        let result = self.verify_type(in_expr)?;
+        self.env.shallow(1);
+        Ok(result)
+    }
+
+    pub fn verify_top_level(&mut self, definitions: &Vec<Spanned<TopLevel>>) -> TypeCheckResult {
+        use TopLevel::*;
+
+        // First pass - Collect definitions
+        for definition in definitions {
+            #[allow(clippy::single_match)]
+            match &definition.data {
+                Fun {
+                    name,
+                    args,
+                    return_type,
+                    expr: _,
+                } => {
+                    let arg_types = args
+                        .iter()
+                        .map(|(_, type_annot)| Self::eval_type_e(type_annot))
+                        .collect::<Result<Vec<Type>, _>>()?;
+
+                    let return_type = Box::new(match return_type {
+                        Some(return_type) => Self::eval_type_e(return_type)?,
+                        _ => Type::Unit,
+                    });
+
+                    self.env.define_global(
+                        name.data.clone(),
+                        Type::Function {
+                            arg_types,
+                            return_type,
+                        },
+                    )
+                }
+                _ => (),
+            }
+        }
+
+        // Second pass - Verify
+        for definition in definitions {
+            match &definition.data {
+                Let {
+                    name,
+                    type_annot,
+                    value,
+                } => {
+                    let vtype = self.verify_type(value)?;
+                    let vtype = if let Some(type_annot) = type_annot {
+                        let annotated_type = Self::eval_type_e(type_annot)?;
+                        Self::expect_type(&vtype, &annotated_type)
+                            .map_err(|err| err.spanned(value.span.clone()))?;
+                        annotated_type
+                    } else {
+                        vtype
+                    };
+                    self.env.define_global(name.data.clone(), vtype);
+                }
+                Fun {
+                    name, args, expr, ..
+                } => {
+                    let t = self.env.resolve_global(&name.data).unwrap().clone();
+                    let Type::Function { arg_types, return_type } = t.clone() else {
+                        unreachable!()
+                    };
+
+                    self.env.define_local(name.data.clone(), t);
+                    for (index, arg_type) in arg_types.into_iter().enumerate() {
+                        self.env.define_local(args[index].0.data.clone(), arg_type);
+                    }
+
+                    let ftype = self.verify_type(expr)?;
+                    Self::expect_type(&ftype, &return_type).map_err(|_| {
+                        TypeCheckError::UnexpectedReturnType {
+                            function_name: name.data.clone(),
+                            found: ftype,
+                            expected: *return_type,
+                        }
+                        .spanned(name.span.clone())
+                    })?;
+                    self.env.shallow(args.len() + 1);
+                }
+            }
+        }
+
+        let entry_point = self
+            .env
+            .resolve_global("main")
+            .ok_or_else(|| TypeCheckError::EntryPointNotProvided.spanned(0..0))?;
+
+        let Type::Function { arg_types: _, return_type } = entry_point else {
+            return Err(TypeCheckError::EntryPointNotProvided.spanned(0..0));
+        };
+
+        Ok(*return_type.clone())
     }
 
     fn expect_type(t: &Type, expected: &Type) -> Result<(), TypeCheckError> {
@@ -152,6 +316,33 @@ impl TypeCheker {
                     expected: expected.clone(),
                 });
             }
+        }
+
+        // Clean here, probably better to implement eq for Type than doing this
+        if let (
+            Type::Function {
+                arg_types: arg_types1,
+                return_type: return_type1,
+            },
+            Type::Function {
+                arg_types: arg_types2,
+                return_type: return_type2,
+            },
+        ) = (t, expected)
+        {
+            if arg_types1.len() != arg_types2.len() {
+                return Err(TypeCheckError::MismatchedType {
+                    found: t.clone(),
+                    expected: expected.clone(),
+                });
+            }
+
+            for (found, expected) in std::iter::zip(arg_types1, arg_types2) {
+                Self::expect_type(found, expected)?;
+            }
+
+            Self::expect_type(return_type1, return_type2)?;
+            return Ok(());
         }
 
         if t != expected {
@@ -185,6 +376,25 @@ impl TypeCheker {
                     )
                 }
             },
+            UnitValue => Type::Unit,
+            Function {
+                arg_types,
+                return_type,
+            } => {
+                let arg_types = arg_types
+                    .iter()
+                    .map(Self::eval_type_e)
+                    .collect::<Result<Vec<_>, _>>()?;
+                let return_type = Box::new(match return_type {
+                    Some(return_type) => Self::eval_type_e(return_type)?,
+                    None => Type::Unit,
+                });
+
+                Type::Function {
+                    arg_types,
+                    return_type,
+                }
+            }
         })
     }
 }
@@ -194,10 +404,27 @@ type TypeCheckResult = Result<Type, Spanned<TypeCheckError>>;
 #[derive(Debug)]
 pub enum TypeCheckError {
     ExpectedNumericType(Type),
-    MismatchedType { found: Type, expected: Type },
-    EqualityCheckOfDifferentTypes { left: Type, right: Type },
+    MismatchedType {
+        found: Type,
+        expected: Type,
+    },
+    EqualityCheckOfDifferentTypes {
+        left: Type,
+        right: Type,
+    },
     UndefinedTypeName(Symbol),
     UndefinedIdentifier(Symbol),
+    UnexpectedReturnType {
+        function_name: Symbol,
+        found: Type,
+        expected: Type,
+    },
+    EntryPointNotProvided,
+    UncallableType(Type),
+    ArgumentNumberMismatch {
+        found: usize,
+        expected: usize,
+    },
 }
 
 impl HasSpan for TypeCheckError {}
@@ -207,11 +434,15 @@ impl Error for TypeCheckError {
         use TypeCheckError::*;
 
         match self {
-            ExpectedNumericType(t) => format!("Expected an expression type one of `Natural`, `Integer`, or `Real` instead found `{t:?}`"),
-            MismatchedType { found, expected } => format!("Expected an expression type of `{expected:?}` instead found `{found:?}`"),
-            EqualityCheckOfDifferentTypes { left, right } => format!("Cannot determine the equality of different types: `{left:?}` == `{right:?}` "),
+            ExpectedNumericType(t) => format!("Expected an expression type one of `Natural`, `Integer`, or `Real` instead found `{t}`"),
+            MismatchedType { found, expected } => format!("Expected an expression type of `{expected}` instead found `{found}`"),
+            EqualityCheckOfDifferentTypes { left, right } => format!("Cannot determine the equality of different types: `{left}` == `{right}` "),
             UndefinedTypeName(name) => format!("A type named `{name}` does not exist."),
             UndefinedIdentifier(name) => format!("Identifier `{name}` was never defined."),
+            UnexpectedReturnType { function_name, found, expected } => format!("Function {function_name} expected to return `{expected}` instead found `{found}`"),
+            EntryPointNotProvided => "Entry point (main) for the program is not provided".to_string(),
+            UncallableType(t) => format!("Cannot call a `{t}`, only functions are callable"),
+            ArgumentNumberMismatch { found, expected } => format!("Expected `{expected}` number of arguments instead found `{found}` number of arguments"),
         }
     }
 }
@@ -222,6 +453,11 @@ pub enum Type {
     Integer,
     Real,
     Bool,
+    Function {
+        arg_types: Vec<Type>,
+        return_type: Box<Type>,
+    },
+    Unit,
 }
 
 impl Type {
@@ -246,6 +482,32 @@ impl Type {
             self.clone()
         } else {
             ty
+        }
+    }
+}
+
+impl std::fmt::Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use Type::*;
+
+        match self {
+            Natural => write!(f, "Natural"),
+            Integer => write!(f, "Integer"),
+            Real => write!(f, "Real"),
+            Bool => write!(f, "Bool"),
+            Function {
+                arg_types,
+                return_type,
+            } => {
+                write!(f, "fun(")?;
+                for arg_type in arg_types {
+                    write!(f, "{arg_type},")?;
+                }
+                write!(f, ")")?;
+                write!(f, " -> ")?;
+                write!(f, "{return_type}")
+            }
+            Unit => write!(f, "()"),
         }
     }
 }

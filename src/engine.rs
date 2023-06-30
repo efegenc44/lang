@@ -4,7 +4,7 @@ use apnum::{self, BigInt, BigNat};
 
 use crate::{
     common::*,
-    parser::{BinaryOp, Expression, UnaryOp},
+    parser::{BinaryOp, Expression, TopLevel, TypeExpr, UnaryOp},
 };
 
 pub struct Engine {
@@ -35,6 +35,7 @@ impl Engine {
             }
             RealNumber(real) => Value::Real(real.parse::<Real>().unwrap()),
             BoolValue(value) => Value::Bool(*value),
+            UnitValue => Value::Unit,
             Binary { op, left, right } => self.evaluate_binary_op(op, left, right)?,
             Unary { op, operand } => self.evaluate_unary_op(op, operand)?,
             Let {
@@ -43,6 +44,22 @@ impl Engine {
                 value,
                 expr,
             } => self.evaluate_let_expr(name, value, expr)?,
+            Fun {
+                name,
+                args,
+                return_type: _,
+                expr,
+                in_expr,
+            } => self.evaluate_fun_expr(name, args, expr, in_expr)?,
+            FunctionCall { f, args } => {
+                let f = self.evaluate(f)?;
+                let arg_values = args
+                    .iter()
+                    .map(|arg| self.evaluate(arg))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                self.call_function(f, &arg_values)?
+            }
         })
     }
 
@@ -72,6 +89,7 @@ impl Engine {
             LessEqual => Value::Bool(lvalue <= rvalue),
             Greater => Value::Bool(lvalue > rvalue),
             GreaterEqual => Value::Bool(lvalue >= rvalue),
+            Sequence => rvalue,
         })
     }
 
@@ -97,10 +115,100 @@ impl Engine {
         expr: &Spanned<Expression>,
     ) -> EvaluationResult {
         let value = self.evaluate(value)?;
-        self.env.define(name.data.clone(), value);
+        self.env.define_local(name.data.clone(), value);
         let result = self.evaluate(expr)?;
-        self.env.shallow();
+        self.env.shallow(1);
         Ok(result)
+    }
+
+    fn evaluate_fun_expr(
+        &mut self,
+        name: &Spanned<Symbol>,
+        args: &[(Spanned<Symbol>, Spanned<TypeExpr>)],
+        expr: &Spanned<Expression>,
+        in_expr: &Spanned<Expression>,
+    ) -> EvaluationResult {
+        let args = args
+            .iter()
+            .map(|(name, _)| name.data.clone())
+            .collect::<Vec<_>>();
+
+        self.env.define_local(
+            name.data.clone(),
+            Value::Function {
+                name: name.data.clone(),
+                args,
+                expr: expr.clone(),
+            },
+        );
+
+        let result = self.evaluate(in_expr)?;
+        self.env.shallow(1);
+        Ok(result)
+    }
+
+    pub fn evaluate_top_level(&mut self, definitions: &Vec<Spanned<TopLevel>>) -> EvaluationResult {
+        use TopLevel::*;
+
+        // First pass - Collect definitions
+        for definition in definitions {
+            #[allow(clippy::single_match)]
+            match &definition.data {
+                Fun {
+                    name,
+                    args,
+                    return_type: _,
+                    expr,
+                } => {
+                    let args = args
+                        .iter()
+                        .map(|(name, _)| name.data.clone())
+                        .collect::<Vec<_>>();
+
+                    self.env.define_global(
+                        name.data.clone(),
+                        Value::Function {
+                            name: name.data.clone(),
+                            args,
+                            expr: expr.clone(),
+                        },
+                    )
+                }
+                _ => (),
+            }
+        }
+
+        for definition in definitions {
+            match &definition.data {
+                Let {
+                    name,
+                    type_annot: _,
+                    value,
+                } => {
+                    let value = self.evaluate(value)?;
+                    self.env.define_global(name.data.clone(), value);
+                }
+                Fun { .. } => (),
+            }
+        }
+
+        let entry_point = self.env.resolve_global("main").unwrap().clone();
+        let result = self.call_function(entry_point, &[])?;
+        Ok(result)
+    }
+
+    fn call_function(&mut self, f: Value, arg_values: &[Value]) -> EvaluationResult {
+        let Value::Function { name, args, expr } = f.clone() else {
+            unreachable!()
+        };
+        let args_len = args.len();
+        for (arg, value) in std::iter::zip(args, arg_values) {
+            self.env.define_local(arg, value.clone());
+        }
+        self.env.define_local(name, f);
+        let ftype = self.evaluate(&expr)?;
+        self.env.shallow(args_len + 1);
+        Ok(ftype)
     }
 }
 
@@ -129,6 +237,12 @@ pub enum Value {
     Integer(IntegerValue),
     Real(Real),
     Bool(bool),
+    Function {
+        name: Symbol,
+        args: Vec<Symbol>,
+        expr: Spanned<Expression>,
+    },
+    Unit,
 }
 
 impl std::fmt::Display for Value {
@@ -140,6 +254,12 @@ impl std::fmt::Display for Value {
             Integer(int) => write!(f, "{int}"),
             Real(real) => write!(f, "{real}"),
             Bool(value) => write!(f, "{value}"),
+            Function {
+                name,
+                args: _,
+                expr: _,
+            } => write!(f, "<function: {name}>"),
+            Unit => write!(f, "()"),
         }
     }
 }

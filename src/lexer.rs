@@ -19,7 +19,8 @@ impl Iterator for Lexer {
 
         let token = match self.current_char() {
             '+' => Plus,
-            '-' => Minus,
+            #[rustfmt::skip]
+            '-' => if self.peek_is('>') { Arrow } else { Minus },
             '*' => Star,
             '/' => Slash,
             #[rustfmt::skip]
@@ -33,6 +34,8 @@ impl Iterator for Lexer {
             '(' => LParen,
             ')' => RParen,
             ':' => Colon,
+            ';' => SemiColon,
+            ',' => Comma,
             '\0' => End,
 
             ' ' | '\t' | '\r' | '\n' => {
@@ -135,6 +138,7 @@ impl Lexer {
         Ok(match symbol.as_str() {
             "let" => Klet,
             "in" => Kin,
+            "fun" => Kfun,
             "true" => Ktrue,
             "false" => Kfalse,
             "and" => Kand,
@@ -196,9 +200,13 @@ pub enum Token {
     LParen,
     RParen,
     Colon,
+    SemiColon,
+    Comma,
+    Arrow,
 
     Klet,
     Kin,
+    Kfun,
 
     Ktrue,
     Kfalse,
@@ -234,8 +242,12 @@ impl std::fmt::Display for Token {
             LParen => write!(f, "("),
             RParen => write!(f, ")"),
             Colon => write!(f, ":"),
+            SemiColon => write!(f, ";"),
+            Comma => write!(f, ","),
+            Arrow => write!(f, "->"),
             Klet => write!(f, "let"),
             Kin => write!(f, "in"),
+            Kfun => write!(f, "fun"),
             Ktrue => write!(f, "true"),
             Kfalse => write!(f, "false"),
             Kand => write!(f, "and"),
