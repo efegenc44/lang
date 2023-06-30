@@ -446,8 +446,21 @@ impl std::cmp::PartialEq for Value {
         use NaturalValue as nv;
         use Value::*;
 
-        // Fix equality for numeric types
         match (self, other) {
+            (Unit, Unit) => true,
+            (Function { .. }, Function { .. }) => false,
+            (Bool(lbool), Bool(rbool)) => lbool == rbool,
+            // TODO: Ideally get rid of clones
+            any!(Real, lvalue, rvalue) => lvalue.clone().real() == rvalue.clone().real(),
+            // TODO: Ideally get rid of clones
+            any!(Integer, lvalue, rvalue) => match (lvalue.clone().int(), rvalue.clone().int()) {
+                (iv::Small(lsmall), iv::Small(rsmall)) => lsmall == rsmall,
+                // TODO: Consider doing comparison directly, without creating a new big num from small num
+                (iv::Small(small), iv::Big(big)) | (iv::Big(big), iv::Small(small)) => {
+                    BigInt::from(small) == big
+                }
+                (iv::Big(lbig), iv::Big(rbig)) => lbig == rbig,
+            },
             (Natural(lnat), Natural(rnat)) => match (lnat, rnat) {
                 (nv::Small(lsmall), nv::Small(rsmall)) => lsmall == rsmall,
                 // TODO: Consider doing comparison directly, without creating a new big num from small num
@@ -456,23 +469,7 @@ impl std::cmp::PartialEq for Value {
                 }
                 (nv::Big(lbig), nv::Big(rbig)) => lbig == rbig,
             },
-            (Integer(lint), Integer(rint)) => match (lint, rint) {
-                (iv::Small(lsmall), iv::Small(rsmall)) => lsmall == rsmall,
-                // TODO: Consider doing comparison directly, without creating a new big num from small num
-                (iv::Small(small), iv::Big(big)) | (iv::Big(big), iv::Small(small)) => {
-                    &BigInt::from(*small) == big
-                }
-                (iv::Big(lbig), iv::Big(rbig)) => lbig == rbig,
-            },
-            (Real(lreal), Real(rreal)) => lreal == rreal,
-            (Bool(lbool), Bool(rbool)) => lbool == rbool,
-            _ => {
-                println!("{self}, {other}");
-                let Integer(_) = self else {
-                    unreachable!();
-                };
-                unreachable!()
-            },
+            _ => unreachable!(),
         }
     }
 }

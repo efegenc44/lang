@@ -1,5 +1,7 @@
 fun main() =
-    factorial(30) ; fib(25) ; ()
+    factorial(30) == 265252859812191058636308480000000;
+    fib(25) == 75025;
+    ()
 
 fun fib(n: Int) -> Nat =
     if n <= 2 
@@ -8,7 +10,7 @@ fun fib(n: Int) -> Nat =
         fib(n - 1) + fib(n - 2)
 
 fun factorial(n: Int) -> Int =
-    if n <= 1
+    if n == 1
         1
     else
         n * factorial(n - 1)

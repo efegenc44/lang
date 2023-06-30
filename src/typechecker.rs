@@ -132,15 +132,22 @@ impl TypeCheker {
                 Self::expect_type(&rtype, &Bool).map_err(|err| err.spanned(right.span.clone()))?;
                 Bool
             }
+            // TODO
             Equal | NotEqual => {
-                Self::expect_type(&ltype, &rtype).map_err(|_| {
-                    TypeCheckError::EqualityCheckOfDifferentTypes {
-                        left: ltype,
-                        right: rtype,
-                    }
-                    .start_end(left.span.clone(), right.span.clone())
-                })?;
-                Bool
+                if (ltype.is_numeric() || rtype.is_numeric())
+                    && (ltype.is_subtype_of(&rtype) || rtype.is_subtype_of(&ltype))
+                {
+                    Bool
+                } else {
+                    Self::expect_type(&ltype, &rtype).map_err(|_| {
+                        TypeCheckError::EqualityCheckOfDifferentTypes {
+                            left: ltype,
+                            right: rtype,
+                        }
+                        .start_end(left.span.clone(), right.span.clone())
+                    })?;
+                    Bool
+                }
             }
             Less | LessEqual | Greater | GreaterEqual => {
                 Self::expect_numeric(&ltype).map_err(|err| err.spanned(left.span.clone()))?;
