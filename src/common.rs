@@ -125,4 +125,17 @@ impl<T> Environment<T> {
         }
         self.resolve_global(name)
     }
+
+    pub fn assign_global(&mut self, name: &Symbol, value: T) {
+        *self.global.get_mut(name).unwrap() = value;
+    }
+
+    pub fn assign(&mut self, name: &Symbol, value: T) {
+        for (defined, defined_value) in self.locals.iter_mut().rev() {
+            if defined == name {
+                return *defined_value = value;
+            }
+        }
+        self.assign_global(name, value);
+    }
 }

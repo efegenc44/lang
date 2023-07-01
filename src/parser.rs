@@ -211,7 +211,8 @@ impl Parser {
     #[rustfmt::skip]    binary_expr_precedence_level!(equality,   comparison, Token::DoubleEqual | Token::BangEqual,    NO_ASSOC);
     #[rustfmt::skip]    binary_expr_precedence_level!(bool_and,   equality,   Token::Kand,                              LEFT_ASSOC);
     #[rustfmt::skip]    binary_expr_precedence_level!(bool_or,    bool_and,   Token::Kor,                               LEFT_ASSOC);
-    #[rustfmt::skip]    binary_expr_precedence_level!(sequence,   bool_or,    Token::SemiColon,                         LEFT_ASSOC);
+    #[rustfmt::skip]    binary_expr_precedence_level!(assignment, bool_or,    Token::Equal,                             NO_ASSOC);
+    #[rustfmt::skip]    binary_expr_precedence_level!(sequence,   assignment, Token::SemiColon,                         LEFT_ASSOC);
 
     fn let_expr(&mut self) -> ParseResult {
         use Token::*;
@@ -580,6 +581,7 @@ pub enum BinaryOp {
     Greater,
     GreaterEqual,
     Sequence,
+    Assignment,
 }
 
 impl From<&Token> for BinaryOp {
@@ -600,6 +602,7 @@ impl From<&Token> for BinaryOp {
             Greater => Self::Greater,
             GreaterEqual => Self::GreaterEqual,
             SemiColon => Self::Sequence,
+            Equal => Self::Assignment,
             _ => unreachable!(),
         }
     }

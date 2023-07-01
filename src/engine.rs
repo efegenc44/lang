@@ -67,6 +67,7 @@ impl Engine {
         right: &Spanned<Expression>,
     ) -> EvaluationResult {
         use BinaryOp::*;
+        use Expression::*;
 
         let lvalue = self.evaluate(left)?;
         let rvalue = self.evaluate(right)?;
@@ -87,6 +88,13 @@ impl Engine {
             Greater => Value::Bool(lvalue > rvalue),
             GreaterEqual => Value::Bool(lvalue >= rvalue),
             Sequence => rvalue,
+            Assignment => {
+                match &left.data {
+                    Identifier(symbol) => self.env.assign(symbol, rvalue),
+                    _ => unreachable!(),
+                }
+                Value::Unit
+            }
         })
     }
 
@@ -569,9 +577,7 @@ impl std::cmp::PartialEq for NaturalValue {
         match (self, other) {
             (Small(lsmall), Small(rsmall)) => lsmall == rsmall,
             // TODO: Consider doing comparison directly, without creating a new big num from small num
-            (Small(small), Big(big)) | (Big(big), Small(small)) => {
-                &BigNat::from(*small) == big
-            }
+            (Small(small), Big(big)) | (Big(big), Small(small)) => &BigNat::from(*small) == big,
             (Big(lbig), Big(rbig)) => lbig == rbig,
         }
     }
@@ -581,7 +587,7 @@ impl std::cmp::Eq for NaturalValue {}
 
 impl std::cmp::Ord for NaturalValue {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        use NaturalValue::*; 
+        use NaturalValue::*;
 
         match (self, other) {
             (Small(lsmall), Small(rsmall)) => lsmall.cmp(rsmall),
@@ -590,7 +596,7 @@ impl std::cmp::Ord for NaturalValue {
             (Big(lbig), Big(rbig)) => lbig.cmp(rbig),
         }
     }
-} 
+}
 
 impl std::cmp::PartialOrd for NaturalValue {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -690,9 +696,7 @@ impl std::cmp::PartialEq for IntegerValue {
         match (self, other) {
             (Small(lsmall), Small(rsmall)) => lsmall == rsmall,
             // TODO: Consider doing comparison directly, without creating a new big num from small num
-            (Small(small), Big(big)) | (Big(big), Small(small)) => {
-                &BigInt::from(*small) == big
-            }
+            (Small(small), Big(big)) | (Big(big), Small(small)) => &BigInt::from(*small) == big,
             (Big(lbig), Big(rbig)) => lbig == rbig,
         }
     }
@@ -705,10 +709,10 @@ impl std::cmp::Ord for IntegerValue {
         use IntegerValue::*;
 
         match (self, other) {
-            (Small(lsmall), Small(rsmall)) => lsmall.cmp(&rsmall),
-            (Small(small), Big(big)) => BigInt::from(*small).cmp(&big),
+            (Small(lsmall), Small(rsmall)) => lsmall.cmp(rsmall),
+            (Small(small), Big(big)) => BigInt::from(*small).cmp(big),
             (Big(big), Small(small)) => big.cmp(&BigInt::from(*small)),
-            (Big(lbig), Big(rbig)) => lbig.cmp(&rbig),
+            (Big(lbig), Big(rbig)) => lbig.cmp(rbig),
         }
     }
 }

@@ -61,6 +61,7 @@ impl TypeCheker {
         right: &Spanned<Expression>,
     ) -> TypeCheckResult {
         use BinaryOp::*;
+        use Expression::*;
         use Type::*;
 
         let ltype = self.verify_type(left)?;
@@ -105,6 +106,24 @@ impl TypeCheker {
                 Bool
             }
             Sequence => rtype,
+            Assignment => {
+                match &left.data {
+                    Identifier(symbol) => match self.env.resolve(symbol) {
+                        Some(ty) => Self::expect_type(&rtype, ty)
+                            .map_err(|err| err.spanned(right.span.clone()))?,
+                        None => {
+                            return Err(TypeCheckError::UndefinedIdentifier(symbol.clone())
+                                .spanned(left.span.clone()))
+                        }
+                    },
+                    _ => {
+                        return Err(
+                            TypeCheckError::InvalidAssignmentTarget.spanned(left.span.clone())
+                        )
+                    }
+                };
+                Unit
+            }
         })
     }
 
@@ -423,6 +442,7 @@ pub enum TypeCheckError {
         true_branch: Type,
         false_branch: Type,
     },
+    InvalidAssignmentTarget,
 }
 
 impl HasSpan for TypeCheckError {}
@@ -442,6 +462,7 @@ impl Error for TypeCheckError {
             UncallableType(t) => format!("Cannot call a `{t}`, only functions are callable"),
             ArgumentNumberMismatch { found, expected } => format!("Expected `{expected}` number of arguments instead found `{found}` number of arguments"),
             DifferentTypedBranches { true_branch, false_branch } => format!("Branches of if expression have uncompatable types: `{true_branch}` and `{false_branch}`"),
+            InvalidAssignmentTarget => "Invalid assignment target".to_string(),
         }
     }
 }
