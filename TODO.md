@@ -1,0 +1,21 @@
+# TODO
+
+- [ ] Closures
+- [ ] Imperative Constructs
+  - [ ] While Loop
+  - [ ] For Loop
+  - [ ] Return Statement
+  - [ ] Continue Statement
+  - [ ] Break Statement
+- [ ] Parametric Polymorphism
+  - [ ] Polymorphic Product/Sum Types
+  - [ ] Polymorphic functions
+    - [ ] Auto initializiation of polymorphic functions
+- [ ] Compound Datas
+  - [ ] Lists
+  - [ ] Maps
+  - [ ] Tuples
+- [ ] Modules
+- [ ] Structs (Product Types)
+- [ ] Variants (Sum Types)
+- [ ] Pattern Matching
