@@ -139,7 +139,10 @@ impl<T> Environment<T> {
         self.assign_global(name, value);
     }
 
-    pub fn capture(&self) -> Vec<(Symbol, T)> where T: Clone {
+    pub fn capture(&self) -> Vec<(Symbol, T)>
+    where
+        T: Clone,
+    {
         self.locals.clone()
     }
 

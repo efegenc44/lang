@@ -5,12 +5,14 @@ use crate::{
 
 pub struct TypeCheker {
     env: Environment<Type>,
+    current_function_return_type: Option<Type>,
 }
 
 impl TypeCheker {
     pub fn new() -> Self {
         Self {
             env: Environment::new(),
+            current_function_return_type: None,
         }
     }
 
@@ -51,6 +53,15 @@ impl TypeCheker {
                 true_expr,
                 false_expr,
             } => self.verify_if_expr(condition, true_expr, false_expr)?,
+            Return(value) => {
+                let vtype = self.verify_type(value)?;
+                let Some(rtype) = &self.current_function_return_type else {
+                    return Err(TypeCheckError::ReturnOutsideOfAFunction.spanned(e.span.clone()))
+                };
+                Self::expect_type(&vtype, rtype)
+                    .map_err(|err| err.spanned(value.span.clone()))?;
+                Type::Unit
+            }
         })
     }
 
@@ -191,18 +202,21 @@ impl TypeCheker {
             Some(return_type) => Self::eval_type_e(return_type)?,
             _ => Type::Unit,
         });
-
+        
         let t = Type::Function {
             arg_types: arg_types.clone(),
             return_type: return_type.clone(),
         };
-
+        
         self.env.define_local(name.data.clone(), t);
         for (index, arg_type) in arg_types.into_iter().enumerate() {
             self.env.define_local(args[index].0.data.clone(), arg_type);
         }
 
+        self.current_function_return_type = Some(*return_type.clone());
         let ftype = self.verify_type(expr)?;
+        self.current_function_return_type = None;
+        
         Self::expect_type(&ftype, &return_type).map_err(|_| {
             TypeCheckError::UnexpectedReturnType {
                 function_name: name.data.clone(),
@@ -330,8 +344,11 @@ impl TypeCheker {
                     for (index, arg_type) in arg_types.into_iter().enumerate() {
                         self.env.define_local(args[index].0.data.clone(), arg_type);
                     }
-
+                    
+                    self.current_function_return_type = Some(*return_type.clone());
                     let ftype = self.verify_type(expr)?;
+                    self.current_function_return_type = None;
+
                     Self::expect_type(&ftype, &return_type).map_err(|_| {
                         TypeCheckError::UnexpectedReturnType {
                             function_name: name.data.clone(),
@@ -443,6 +460,7 @@ pub enum TypeCheckError {
         false_branch: Type,
     },
     InvalidAssignmentTarget,
+    ReturnOutsideOfAFunction,
 }
 
 impl HasSpan for TypeCheckError {}
@@ -463,6 +481,7 @@ impl Error for TypeCheckError {
             ArgumentNumberMismatch { found, expected } => format!("Expected `{expected}` number of arguments instead found `{found}` number of arguments"),
             DifferentTypedBranches { true_branch, false_branch } => format!("Branches of if expression have uncompatable types: `{true_branch}` and `{false_branch}`"),
             InvalidAssignmentTarget => "Invalid assignment target".to_string(),
+            ReturnOutsideOfAFunction => "Returns are only allowed in function contexts".to_string(),
         }
     }
 }

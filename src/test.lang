@@ -1,6 +1,5 @@
-fun main() -> Real =
-    let new_fun = fun_add(fib, factorial) in
-    new_fun(5)
+fun main() -> Nat =
+    fib(25)
 
 fun fun_add(
     f1: fun(Real) -> Real,
@@ -11,10 +10,8 @@ fun fun_add(
     in closure
 
 fun fib(n: Int) -> Nat =
-    if n <= 2 
-        1
-    else
-        fib(n - 1) + fib(n - 2)
+    (if n <= 2   return 1);
+    fib(n - 1) + fib(n - 2)
 
 fun factorial(n: Int) -> Int =
     if n == 1

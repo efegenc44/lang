@@ -7,6 +7,20 @@ use crate::{
     parser::{BinaryOp, Expression, TopLevel, TypeExpr, UnaryOp},
 };
 
+pub enum Exception {
+    Err(Spanned<EvaluationError>),
+    Return(Value)
+}
+
+impl std::fmt::Display for Exception {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self::Err(error) = self else {
+            unreachable!()
+        };
+        write!(f, "{error}")
+    }
+}
+
 pub struct Engine {
     env: Environment<Value>,
 }
@@ -57,6 +71,7 @@ impl Engine {
                 true_expr,
                 false_expr,
             } => self.evaluate_if_expr(condition, true_expr, false_expr)?,
+            Return(value) => Err(Exception::Return(self.evaluate(value)?))?,
         })
     }
 
@@ -77,7 +92,7 @@ impl Engine {
             Multiplication => lvalue * rvalue,
             Subtraction => lvalue - rvalue,
             Division => (lvalue / rvalue).ok_or_else(|| {
-                EvaluationError::AttemptToDivideByZero.spanned(right.span.clone())
+                Exception::Err(EvaluationError::AttemptToDivideByZero.spanned(right.span.clone()))
             })?,
             And => lvalue & rvalue,
             Or => lvalue | rvalue,
@@ -140,7 +155,7 @@ impl Engine {
 
         self.env.define_local(
             name.data.clone(),
-            Value::Closure(Rc::new(Closure { 
+            Value::Closure(Rc::new(Closure {
                 fun: Function {
                     name: name.data.clone(),
                     args,
@@ -241,26 +256,42 @@ impl Engine {
                 for (arg, value) in std::iter::zip(&f.args, arg_values) {
                     self.env.define_local(arg.clone(), value.clone());
                 }
-                let ftype = self.evaluate(&f.expr)?;
+                let fvalue = match self.evaluate(&f.expr) {
+                    Ok(fvalue) => fvalue,
+                    Err(x) => match x {
+                        Exception::Return(fvalue) => fvalue,
+                        _ => unreachable!()
+                    },
+                };
                 self.env.shallow(f.args.len());
-                Ok(ftype)
+                Ok(fvalue)
             }
             Value::Closure(c) => {
-                let Function { name: _, args, expr } = &c.fun;
+                let Function {
+                    name: _,
+                    args,
+                    expr,
+                } = &c.fun;
                 for (arg, value) in std::iter::zip(args, arg_values) {
                     self.env.define_local(arg.clone(), value.clone());
                 }
                 self.env.extend(c.captures.clone());
-                let ftype = self.evaluate(expr)?;
+                let fvalue = match self.evaluate(expr) {
+                    Ok(fvalue) => fvalue,
+                    Err(x) => match x {
+                        Exception::Return(fvalue) => fvalue,
+                        _ => unreachable!()
+                    },
+                };
                 self.env.shallow(args.len() + c.captures.len());
-                Ok(ftype)
-            },
-            _ => unreachable!()        
+                Ok(fvalue)
+            }
+            _ => unreachable!(),
         }
     }
 }
 
-type EvaluationResult = Result<Value, Spanned<EvaluationError>>;
+type EvaluationResult = Result<Value, Exception>;
 
 #[derive(Debug)]
 pub enum EvaluationError {
@@ -298,7 +329,7 @@ pub struct Function {
 
 pub struct Closure {
     fun: Function,
-    captures: Vec<(Symbol, Value)>
+    captures: Vec<(Symbol, Value)>,
 }
 
 impl std::fmt::Display for Value {

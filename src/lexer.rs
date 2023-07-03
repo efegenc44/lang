@@ -141,6 +141,7 @@ impl Lexer {
             "fun" => Kfun,
             "if" => Kif,
             "else" => Kelse,
+            "return" => Kreturn,
             "true" => Ktrue,
             "false" => Kfalse,
             "and" => Kand,
@@ -211,6 +212,7 @@ pub enum Token {
     Kfun,
     Kif,
     Kelse,
+    Kreturn,
 
     Ktrue,
     Kfalse,
@@ -254,6 +256,7 @@ impl std::fmt::Display for Token {
             Kfun => write!(f, "fun"),
             Kif => write!(f, "if"),
             Kelse => write!(f, "else"),
+            Kreturn => write!(f, "return"),
             Ktrue => write!(f, "true"),
             Kfalse => write!(f, "false"),
             Kand => write!(f, "and"),

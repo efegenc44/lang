@@ -283,6 +283,14 @@ impl Parser {
         .start_end(start_span, self.get_span()))
     }
 
+    fn return_expr(&mut self) -> ParseResult {
+        use Token::*;
+
+        let start_span = self.expect(Kreturn)?;
+        let expr = Box::new(self.expr()?);
+        Ok(Expression::Return(expr).start_end(start_span, self.get_span()))
+    }
+
     fn expr(&mut self) -> ParseResult {
         use Token::*;
 
@@ -290,6 +298,7 @@ impl Parser {
             Klet => self.let_expr(),
             Kfun => self.fun_expr(),
             Kif => self.if_expr(),
+            Kreturn => self.return_expr(),
             _ => self.sequence(),
         }
     }
@@ -476,6 +485,7 @@ pub enum Expression {
         true_expr: Box<Spanned<Expression>>,
         false_expr: Option<Box<Spanned<Expression>>>,
     },
+    Return(Box<Spanned<Expression>>),
 }
 
 impl HasSpan for Expression {}
@@ -562,6 +572,10 @@ impl Spanned<Expression> {
                 true_expr: _,
                 false_expr: _,
             } => todo!(),
+            Return(value) => {
+                pprint!("Return:");
+                value._pretty_print(depth + 1);
+            }
         }
     }
 }

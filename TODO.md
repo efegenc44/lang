@@ -4,7 +4,7 @@
 - [ ] Imperative Constructs
   - [ ] While Loop
   - [ ] For Loop
-  - [ ] Return Statement
+  - [x] Return Statement
   - [ ] Continue Statement
   - [ ] Break Statement
 - [ ] Parametric Polymorphism
