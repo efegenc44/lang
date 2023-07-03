@@ -1,7 +1,14 @@
-fun main() =
-    factorial(30) == 265252859812191058636308480000000;
-    fib(25) == 75025;
-    ()
+fun main() -> Real =
+    let new_fun = fun_add(fib, factorial) in
+    new_fun(5)
+
+fun fun_add(
+    f1: fun(Real) -> Real,
+    f2: fun(Real) -> Real
+) -> fun(Real) -> Real =
+    fun closure(x: Real) -> Real = 
+        f1(x) + f2(x)
+    in closure
 
 fun fib(n: Int) -> Nat =
     if n <= 2 

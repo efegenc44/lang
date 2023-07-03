@@ -138,4 +138,12 @@ impl<T> Environment<T> {
         }
         self.assign_global(name, value);
     }
+
+    pub fn capture(&self) -> Vec<(Symbol, T)> where T: Clone {
+        self.locals.clone()
+    }
+
+    pub fn extend(&mut self, closure: Vec<(Symbol, T)>) {
+        self.locals.extend(closure);
+    }
 }

@@ -1,6 +1,6 @@
 # TODO
 
-- [ ] Closures
+- [x] Closures
 - [ ] Imperative Constructs
   - [ ] While Loop
   - [ ] For Loop

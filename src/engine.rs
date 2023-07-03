@@ -1,4 +1,4 @@
-use std::num::IntErrorKind;
+use std::{num::IntErrorKind, rc::Rc};
 
 use apnum::{self, BigInt, BigNat};
 
@@ -140,11 +140,15 @@ impl Engine {
 
         self.env.define_local(
             name.data.clone(),
-            Value::Function {
-                name: name.data.clone(),
-                args,
-                expr: expr.clone(),
-            },
+            Value::Closure(Rc::new(Closure { 
+                fun: Function {
+                    name: name.data.clone(),
+                    args,
+                    expr: expr.clone(),
+                },
+                // TODO: Capture only needed
+                captures: self.env.capture(),
+            })),
         );
 
         let result = self.evaluate(in_expr)?;
@@ -201,11 +205,11 @@ impl Engine {
 
                     self.env.define_global(
                         name.data.clone(),
-                        Value::Function {
+                        Value::Function(Rc::new(Function {
                             name: name.data.clone(),
                             args,
                             expr: expr.clone(),
-                        },
+                        })),
                     )
                 }
                 _ => (),
@@ -232,17 +236,27 @@ impl Engine {
     }
 
     fn call_function(&mut self, f: Value, arg_values: &[Value]) -> EvaluationResult {
-        let Value::Function { name, args, expr } = f.clone() else {
-            unreachable!()
-        };
-        let args_len = args.len();
-        for (arg, value) in std::iter::zip(args, arg_values) {
-            self.env.define_local(arg, value.clone());
+        match f {
+            Value::Function(f) => {
+                for (arg, value) in std::iter::zip(&f.args, arg_values) {
+                    self.env.define_local(arg.clone(), value.clone());
+                }
+                let ftype = self.evaluate(&f.expr)?;
+                self.env.shallow(f.args.len());
+                Ok(ftype)
+            }
+            Value::Closure(c) => {
+                let Function { name: _, args, expr } = &c.fun;
+                for (arg, value) in std::iter::zip(args, arg_values) {
+                    self.env.define_local(arg.clone(), value.clone());
+                }
+                self.env.extend(c.captures.clone());
+                let ftype = self.evaluate(expr)?;
+                self.env.shallow(args.len() + c.captures.len());
+                Ok(ftype)
+            },
+            _ => unreachable!()        
         }
-        self.env.define_local(name, f);
-        let ftype = self.evaluate(&expr)?;
-        self.env.shallow(args_len + 1);
-        Ok(ftype)
     }
 }
 
@@ -271,12 +285,20 @@ pub enum Value {
     Integer(IntegerValue),
     Real(Real),
     Bool(bool),
-    Function {
-        name: Symbol,
-        args: Vec<Symbol>,
-        expr: Spanned<Expression>,
-    },
+    Function(Rc<Function>),
+    Closure(Rc<Closure>),
     Unit,
+}
+
+pub struct Function {
+    name: Symbol,
+    args: Vec<Symbol>,
+    expr: Spanned<Expression>,
+}
+
+pub struct Closure {
+    fun: Function,
+    captures: Vec<(Symbol, Value)>
 }
 
 impl std::fmt::Display for Value {
@@ -288,13 +310,16 @@ impl std::fmt::Display for Value {
             Integer(int) => write!(f, "{int}"),
             Real(real) => write!(f, "{real}"),
             Bool(value) => write!(f, "{value}"),
-            Function {
-                name,
-                args: _,
-                expr: _,
-            } => write!(f, "<function: {name}>"),
+            Function(fun) => write!(f, "<function: {}>", fun.name),
+            Closure(closure) => write!(f, "<function: {}>", closure.fun.name),
             Unit => write!(f, "()"),
         }
+    }
+}
+
+impl std::fmt::Debug for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self, f)
     }
 }
 
