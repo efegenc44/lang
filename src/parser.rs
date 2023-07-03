@@ -110,9 +110,15 @@ impl Parser {
                 let end_span = self.expect(RParen)?;
                 return Ok(expr.start_end(current_token_span, end_span));
             }
+            LSquare => {
+                self.advance();
+                let expr = Box::new(self.type_expr()?);
+                let end_span = self.expect(RSquare)?;
+                return Ok(TypeExpr::List(expr).start_end(current_token_span, end_span));
+            }
             Kfun => {
                 self.advance();
-                let arg_types = self.parse_comma_seperated(Self::type_expr)?;
+                let arg_types = self.parse_comma_seperated(LParen, RParen, Self::type_expr)?;
                 let return_type = match self.optional(Arrow) {
                     true => Some(Box::new(self.type_expr()?)),
                     false => None,
@@ -149,6 +155,17 @@ impl Parser {
             RealNumber(real) => Expression::RealNumber(real.clone()).spanned(current_token_span),
             Ktrue => Expression::BoolValue(true).spanned(current_token_span),
             Kfalse => Expression::BoolValue(false).spanned(current_token_span),
+            Klet => return self.let_expr(),
+            Kfun => return self.fun_expr(),
+            Kif => return self.if_expr(),
+            Kwhile => return self.while_expr(),
+            Kreturn => return self.return_expr(),
+            Kcontinue => return self.continue_expr(),
+            Kbreak => return self.break_expr(),
+            LSquare => {
+                let exprs = self.parse_comma_seperated(LSquare, RSquare, Self::expr)?;
+                return Ok(Expression::List(exprs).start_end(current_token_span, self.get_span()))
+            }
             LParen => {
                 self.advance();
                 if self.optional(RParen) {
@@ -190,7 +207,7 @@ impl Parser {
             match self.current_token() {
                 LParen => {
                     let start_span = expr.span.clone();
-                    let args = self.parse_comma_seperated(Self::expr)?;
+                    let args = self.parse_comma_seperated(LParen, RParen, Self::expr)?;
                     expr = Expression::FunctionCall {
                         f: Box::new(expr),
                         args,
@@ -212,22 +229,7 @@ impl Parser {
     #[rustfmt::skip]    binary_expr_precedence_level!(bool_and,   equality,   Token::Kand,                              LEFT_ASSOC);
     #[rustfmt::skip]    binary_expr_precedence_level!(bool_or,    bool_and,   Token::Kor,                               LEFT_ASSOC);
     #[rustfmt::skip]    binary_expr_precedence_level!(assignment, bool_or,    Token::Equal,                             NO_ASSOC);
-    fn sequence(&mut self) -> ParseResult {
-        let mut left = self.assignment()?;
-        while let current_token @ Token::SemiColon = self.current_token() {
-            let op = current_token.into();
-            self.advance();
-            let right = self.expr()?;
-            let (left_span, right_span) = (left.span.clone(), right.span.clone());
-            left = Expression::Binary {
-                op,
-                left: Box::new(left),
-                right: Box::new(right),
-            }
-            .start_end(left_span, right_span)
-        }
-        Ok(left)
-    }
+    #[rustfmt::skip]    binary_expr_precedence_level!(sequence,   assignment, Token::SemiColon,                         LEFT_ASSOC);
 
     fn let_expr(&mut self) -> ParseResult {
         use Token::*;
@@ -259,7 +261,7 @@ impl Parser {
 
         let start_span = self.expect(Kfun)?;
         let name = self.expect_identifier()?;
-        let args = self.parse_comma_seperated(Self::typed_identifier)?;
+        let args = self.parse_comma_seperated(LParen, RParen, Self::typed_identifier)?;
         let return_type = match self.optional(Arrow) {
             true => Some(self.type_expr()?),
             false => None,
@@ -331,22 +333,11 @@ impl Parser {
     }
 
     fn expr(&mut self) -> ParseResult {
-        use Token::*;
-
-        match self.current_token() {
-            Klet => self.let_expr(),
-            Kfun => self.fun_expr(),
-            Kif => self.if_expr(),
-            Kwhile => self.while_expr(),
-            Kreturn => self.return_expr(),
-            Kcontinue => self.continue_expr(),
-            Kbreak => self.break_expr(),
-            _ => self.sequence(),
-        }
+        self.sequence()
     }
 
     pub fn parse_expr(&mut self) -> ParseResult {
-        let ast = self.sequence()?;
+        let ast = self.expr()?;
 
         if self.index != self.tokens.len() - 1 {
             return Err(
@@ -402,7 +393,7 @@ impl Parser {
 
         let start_span = self.expect(Kfun)?;
         let name = self.expect_identifier()?;
-        let args = self.parse_comma_seperated(Self::typed_identifier)?;
+        let args = self.parse_comma_seperated(LParen, RParen, Self::typed_identifier)?;
         let return_type = match self.optional(Arrow) {
             true => Some(self.type_expr()?),
             false => None,
@@ -430,15 +421,17 @@ impl Parser {
 
     fn parse_comma_seperated<T>(
         &mut self,
+        open: Token,
+        close: Token,
         f: fn(&mut Self) -> Result<T, Spanned<ParseError>>,
     ) -> Result<Vec<T>, Spanned<ParseError>> {
         use Token::*;
 
         let mut values = vec![];
-        self.expect(LParen)?;
-        if !self.optional(RParen) {
+        self.expect(open)?;
+        if !self.optional(close.clone()) {
             values.push(f(self)?);
-            while !self.optional(RParen) {
+            while !self.optional(close.clone()) {
                 self.expect(Comma)?;
                 values.push(f(self)?);
             }
@@ -534,6 +527,7 @@ pub enum Expression {
     Return(Box<Spanned<Expression>>),
     Break,
     Continue,
+    List(Vec<Spanned<Expression>>)
 }
 
 impl HasSpan for Expression {}
@@ -631,6 +625,8 @@ impl Spanned<Expression> {
             }
             Break => pprint!("Break"),
             Continue => pprint!("Continue"),
+            // TODO
+            List(_) => todo!(),
         }
     }
 }
@@ -702,6 +698,7 @@ pub enum TypeExpr {
         arg_types: Vec<Spanned<TypeExpr>>,
         return_type: Option<Box<Spanned<TypeExpr>>>,
     },
+    List(Box<Spanned<TypeExpr>>),
     UnitValue,
 }
 

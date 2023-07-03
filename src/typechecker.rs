@@ -64,6 +64,19 @@ impl TypeCheker {
             }
             Break => Type::Unit,
             Continue => Type::Unit,
+            List(list) => {
+                Type::List(Box::new(match &list[..] {
+                    [] => Type::Undetermined,
+                    [x, rest @ ..] => {
+                        let t = self.verify_type(x)?;
+                        for e in rest {
+                            let te = self.verify_type(e)?;
+                            Self::expect_type(&te, &t).map_err(|err| err.spanned(e.span.clone()))?;
+                        }
+                        t
+                    }
+                }))
+            }
         })
     }
 
@@ -439,6 +452,7 @@ impl TypeCheker {
                     return_type,
                 }
             }
+            List(e) => Type::List(Box::new(Self::eval_type_e(e)?))
         })
     }
 }
@@ -510,7 +524,10 @@ pub enum Type {
         arg_types: Vec<Type>,
         return_type: Box<Type>,
     },
+    List(Box<Type>),
     Unit,
+
+    Undetermined,
 }
 
 impl Type {
@@ -518,6 +535,7 @@ impl Type {
         use Type::*;
 
         match self {
+            Undetermined => true,
             Natural => matches!(super_type, Natural | Integer | Real),
             Integer => matches!(super_type, Integer | Real),
             Function {
@@ -532,6 +550,13 @@ impl Type {
                     && std::iter::zip(arg_types, sargs_types)
                         .all(|(arg_type, sarg_type)| arg_type.is_subtype_of(sarg_type))
                     && return_type.is_subtype_of(sreturn_type)
+            }
+            List(t) => {
+                let List(st) = super_type else {
+                    return false;
+                };
+
+                t.is_subtype_of(st)
             }
             candidate => candidate == super_type,
         }
@@ -583,7 +608,10 @@ impl std::fmt::Display for Type {
                 write!(f, " -> ")?;
                 write!(f, "{return_type}")
             }
+            List(t) => write!(f, "[{t}]"),
             Unit => write!(f, "()"),
+
+            Undetermined => write!(f, "*"),
         }
     }
 }

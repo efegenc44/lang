@@ -1,4 +1,4 @@
-use std::{num::IntErrorKind, rc::Rc};
+use std::{num::IntErrorKind, rc::Rc, cell::RefCell};
 
 use apnum::{self, BigInt, BigNat};
 
@@ -77,6 +77,10 @@ impl Engine {
             Return(value) => Err(Exception::Return(self.evaluate(value)?))?,
             Break => Err(Exception::Break)?,
             Continue => Err(Exception::Continue)?,
+            List(list) => {
+                let list = list.iter().map(|e| self.evaluate(e)).collect::<Result<Vec<_>, _>>()?;
+                Value::List(Rc::new(RefCell::new(list)))
+            },
         })
     }
 
@@ -343,6 +347,7 @@ pub enum Value {
     Bool(bool),
     Function(Rc<Function>),
     Closure(Rc<Closure>),
+    List(Rc<RefCell<Vec<Value>>>),
     Unit,
 }
 
@@ -369,6 +374,14 @@ impl std::fmt::Display for Value {
             Function(fun) => write!(f, "<function: {}>", fun.name),
             Closure(closure) => write!(f, "<function: {}>", closure.fun.name),
             Unit => write!(f, "()"),
+            List(list) => {
+                let list = list.borrow();
+                write!(f, "[")?;
+                for e in list.iter() {
+                    write!(f, "{e},")?;
+                }
+                write!(f, "]")
+            },
         }
     }
 }

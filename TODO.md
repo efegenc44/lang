@@ -13,6 +13,9 @@
     - [ ] Auto initializiation of polymorphic functions
 - [ ] Compound Datas
   - [ ] Lists
+    - [x] Syntax & type-checking
+    - [ ] Indexing
+    - [ ] Mutation
   - [ ] Maps
   - [ ] Tuples
 - [ ] Modules
