@@ -212,7 +212,22 @@ impl Parser {
     #[rustfmt::skip]    binary_expr_precedence_level!(bool_and,   equality,   Token::Kand,                              LEFT_ASSOC);
     #[rustfmt::skip]    binary_expr_precedence_level!(bool_or,    bool_and,   Token::Kor,                               LEFT_ASSOC);
     #[rustfmt::skip]    binary_expr_precedence_level!(assignment, bool_or,    Token::Equal,                             NO_ASSOC);
-    #[rustfmt::skip]    binary_expr_precedence_level!(sequence,   assignment, Token::SemiColon,                         LEFT_ASSOC);
+    fn sequence(&mut self) -> ParseResult {
+        let mut left = self.assignment()?;
+        while let current_token @ Token::SemiColon = self.current_token() {
+            let op = current_token.into();
+            self.advance();
+            let right = self.expr()?;
+            let (left_span, right_span) = (left.span.clone(), right.span.clone());
+            left = Expression::Binary {
+                op,
+                left: Box::new(left),
+                right: Box::new(right),
+            }
+            .start_end(left_span, right_span)
+        }
+        Ok(left)
+    }
 
     fn let_expr(&mut self) -> ParseResult {
         use Token::*;
@@ -283,12 +298,36 @@ impl Parser {
         .start_end(start_span, self.get_span()))
     }
 
+    fn while_expr(&mut self) -> ParseResult {
+        use Token::*;
+
+        let start_span = self.expect(Kwhile)?;
+        let condition = Box::new(self.expr()?);
+        let expr = Box::new(self.expr()?);
+
+        Ok(Expression::While { condition, expr }.start_end(start_span, self.get_span()))
+    }
+
     fn return_expr(&mut self) -> ParseResult {
         use Token::*;
 
         let start_span = self.expect(Kreturn)?;
         let expr = Box::new(self.expr()?);
         Ok(Expression::Return(expr).start_end(start_span, self.get_span()))
+    }
+
+    fn continue_expr(&mut self) -> ParseResult {
+        use Token::*;
+
+        let start_span = self.expect(Kcontinue)?;
+        Ok(Expression::Continue.start_end(start_span, self.get_span()))
+    }
+
+    fn break_expr(&mut self) -> ParseResult {
+        use Token::*;
+
+        let start_span = self.expect(Kbreak)?;
+        Ok(Expression::Break.start_end(start_span, self.get_span()))
     }
 
     fn expr(&mut self) -> ParseResult {
@@ -298,13 +337,16 @@ impl Parser {
             Klet => self.let_expr(),
             Kfun => self.fun_expr(),
             Kif => self.if_expr(),
+            Kwhile => self.while_expr(),
             Kreturn => self.return_expr(),
+            Kcontinue => self.continue_expr(),
+            Kbreak => self.break_expr(),
             _ => self.sequence(),
         }
     }
 
     pub fn parse_expr(&mut self) -> ParseResult {
-        let ast = self.expr()?;
+        let ast = self.sequence()?;
 
         if self.index != self.tokens.len() - 1 {
             return Err(
@@ -485,7 +527,13 @@ pub enum Expression {
         true_expr: Box<Spanned<Expression>>,
         false_expr: Option<Box<Spanned<Expression>>>,
     },
+    While {
+        condition: Box<Spanned<Expression>>,
+        expr: Box<Spanned<Expression>>,
+    },
     Return(Box<Spanned<Expression>>),
+    Break,
+    Continue,
 }
 
 impl HasSpan for Expression {}
@@ -572,10 +620,17 @@ impl Spanned<Expression> {
                 true_expr: _,
                 false_expr: _,
             } => todo!(),
+            // TODO
+            While {
+                condition: _,
+                expr: _,
+            } => todo!(),
             Return(value) => {
                 pprint!("Return:");
                 value._pretty_print(depth + 1);
             }
+            Break => pprint!("Break"),
+            Continue => pprint!("Continue"),
         }
     }
 }

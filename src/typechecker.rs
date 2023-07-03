@@ -53,15 +53,17 @@ impl TypeCheker {
                 true_expr,
                 false_expr,
             } => self.verify_if_expr(condition, true_expr, false_expr)?,
+            While { condition, expr } => self.verify_while_expr(condition, expr)?,
             Return(value) => {
                 let vtype = self.verify_type(value)?;
                 let Some(rtype) = &self.current_function_return_type else {
                     return Err(TypeCheckError::ReturnOutsideOfAFunction.spanned(e.span.clone()))
                 };
-                Self::expect_type(&vtype, rtype)
-                    .map_err(|err| err.spanned(value.span.clone()))?;
-                Type::Unit
+                Self::expect_type(&vtype, rtype).map_err(|err| err.spanned(value.span.clone()))?;
+                vtype
             }
+            Break => Type::Unit,
+            Continue => Type::Unit,
         })
     }
 
@@ -202,12 +204,12 @@ impl TypeCheker {
             Some(return_type) => Self::eval_type_e(return_type)?,
             _ => Type::Unit,
         });
-        
+
         let t = Type::Function {
             arg_types: arg_types.clone(),
             return_type: return_type.clone(),
         };
-        
+
         self.env.define_local(name.data.clone(), t);
         for (index, arg_type) in arg_types.into_iter().enumerate() {
             self.env.define_local(args[index].0.data.clone(), arg_type);
@@ -216,7 +218,7 @@ impl TypeCheker {
         self.current_function_return_type = Some(*return_type.clone());
         let ftype = self.verify_type(expr)?;
         self.current_function_return_type = None;
-        
+
         Self::expect_type(&ftype, &return_type).map_err(|_| {
             TypeCheckError::UnexpectedReturnType {
                 function_name: name.data.clone(),
@@ -244,7 +246,7 @@ impl TypeCheker {
         let ttrue = self.verify_type(true_expr)?;
         let tfalse = match false_expr {
             Some(false_expr) => self.verify_type(false_expr)?,
-            None => Type::Unit,
+            None => return Ok(Type::Unit),
         };
 
         ttrue.is_compatable_with(&tfalse).ok_or_else(|| {
@@ -255,6 +257,18 @@ impl TypeCheker {
             // TODO: fix span
             .spanned(condition.span.clone())
         })
+    }
+
+    fn verify_while_expr(
+        &mut self,
+        condition: &Spanned<Expression>,
+        expr: &Spanned<Expression>,
+    ) -> TypeCheckResult {
+        Self::expect_type(&self.verify_type(condition)?, &Type::Bool)
+            .map_err(|err| err.spanned(condition.span.clone()))?;
+
+        self.verify_type(expr)?;
+        Ok(Type::Unit)
     }
 
     fn verify_function_call(
@@ -344,7 +358,7 @@ impl TypeCheker {
                     for (index, arg_type) in arg_types.into_iter().enumerate() {
                         self.env.define_local(args[index].0.data.clone(), arg_type);
                     }
-                    
+
                     self.current_function_return_type = Some(*return_type.clone());
                     let ftype = self.verify_type(expr)?;
                     self.current_function_return_type = None;

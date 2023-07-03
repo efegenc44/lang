@@ -9,7 +9,9 @@ use crate::{
 
 pub enum Exception {
     Err(Spanned<EvaluationError>),
-    Return(Value)
+    Return(Value),
+    Break,
+    Continue,
 }
 
 impl std::fmt::Display for Exception {
@@ -71,7 +73,10 @@ impl Engine {
                 true_expr,
                 false_expr,
             } => self.evaluate_if_expr(condition, true_expr, false_expr)?,
+            While { condition, expr } => self.evaluate_while_expr(condition, expr)?,
             Return(value) => Err(Exception::Return(self.evaluate(value)?))?,
+            Break => Err(Exception::Break)?,
+            Continue => Err(Exception::Continue)?,
         })
     }
 
@@ -186,6 +191,24 @@ impl Engine {
         })
     }
 
+    fn evaluate_while_expr(
+        &mut self,
+        condition: &Spanned<Expression>,
+        expr: &Spanned<Expression>,
+    ) -> EvaluationResult {
+        while self.evaluate(condition)?.bool() {
+            if let Err(x) = self.evaluate(expr) {
+                match x {
+                    Exception::Break => break,
+                    Exception::Continue => continue,
+                    ret @ Exception::Return(_) => return Err(ret),
+                    err @ Exception::Err(_) => return Err(err),
+                }
+            }
+        }
+        Ok(Value::Unit)
+    }
+
     fn evaluate_function_call(
         &mut self,
         f: &Spanned<Expression>,
@@ -260,7 +283,8 @@ impl Engine {
                     Ok(fvalue) => fvalue,
                     Err(x) => match x {
                         Exception::Return(fvalue) => fvalue,
-                        _ => unreachable!()
+                        err @ Exception::Err(_) => return Err(err),
+                        _ => unreachable!(),
                     },
                 };
                 self.env.shallow(f.args.len());
@@ -276,11 +300,12 @@ impl Engine {
                     self.env.define_local(arg.clone(), value.clone());
                 }
                 self.env.extend(c.captures.clone());
-                let fvalue = match self.evaluate(expr) {
+                let fvalue = match self.evaluate(&expr) {
                     Ok(fvalue) => fvalue,
                     Err(x) => match x {
                         Exception::Return(fvalue) => fvalue,
-                        _ => unreachable!()
+                        err @ Exception::Err(_) => return Err(err),
+                        _ => unreachable!(),
                     },
                 };
                 self.env.shallow(args.len() + c.captures.len());

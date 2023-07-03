@@ -2,11 +2,11 @@
 
 - [x] Closures
 - [ ] Imperative Constructs
-  - [ ] While Loop
+  - [x] While Loop
   - [ ] For Loop
   - [x] Return Statement
-  - [ ] Continue Statement
-  - [ ] Break Statement
+  - [x] Continue Statement
+  - [x] Break Statement
 - [ ] Parametric Polymorphism
   - [ ] Polymorphic Product/Sum Types
   - [ ] Polymorphic functions

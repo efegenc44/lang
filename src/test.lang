@@ -1,5 +1,13 @@
 fun main() -> Nat =
-    fib(25)
+    let x = 0 in
+
+    let y = 
+        (while x < 10
+            x = x + 1;
+            if x == 11 break);
+        x 
+    in y
+
 
 fun fun_add(
     f1: fun(Real) -> Real,
