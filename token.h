@@ -8,6 +8,8 @@ typedef enum {
     IDENTIFIER,
     LEFT_PAREN,
     RIGHT_PAREN,
+    PLUS,
+    STAR
 } TokenKind;
 
 typedef union {

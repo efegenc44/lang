@@ -51,6 +51,12 @@ void token_display(Token *token) {
         case RIGHT_PAREN:
             printf(")");
             break;
+        case PLUS:
+            printf("+");
+            break;
+        case STAR:
+            printf("*");
+            break;
         default:
             unreachable("token_display");
     }

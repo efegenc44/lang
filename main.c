@@ -1,11 +1,19 @@
 #include <stdio.h>
+#include <stdbool.h>
 
 #include "lexer.h"
 #include "token.h"
 
 int main() {
-    char *source = "(3 + xyz) * 10.5";
+    char *source = "(3 + xyz) * 10";
     Lexer lexer = lexer_new(source);
-    Token token = lexer_next(&lexer);
-    token_display(&token);
+    for (LexResult result = lexer_next(&lexer); result.kind != DONE; result = lexer_next(&lexer)) {
+        if (result.kind == ERROR) {
+            printf("Error while lexing.");
+            break;
+        } else {
+            token_display(&result.token);
+            printf("\n");
+        }
+    }
 }
