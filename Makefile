@@ -1,2 +1,2 @@
 build: *.c
-	gcc -o main *.c
+	gcc -Wall -o main *.c
