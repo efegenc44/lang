@@ -11,10 +11,8 @@ Lexer lexer_new(char *source) {
     return (Lexer) {
         .source = source,
         .cursor = 0,
-        .position = {
-            .row = 1,
-            .column = 1
-        }
+        .row = 1,
+        .column = 1
     };
 }
 
@@ -36,7 +34,7 @@ LexResult lexer_next(Lexer *lexer) {
         return lexer_identifier(lexer);
     }
 
-    Position start = lexer_position(lexer);
+    size_t start = lexer->column;
     TokenKind kind;
     switch (current_char) {
         case '(':
@@ -65,7 +63,7 @@ LexResult lexer_next(Lexer *lexer) {
 }
 
 LexResult lexer_integer(Lexer *lexer) {
-    Position start = lexer_position(lexer);
+    size_t start = lexer->column;
 
     size_t integer = lexer_advance(lexer) - '0';
     while (isdigit(lexer_peek(lexer))) {
@@ -78,7 +76,7 @@ LexResult lexer_integer(Lexer *lexer) {
 }
 
 LexResult lexer_identifier(Lexer *lexer) {
-    Position start = lexer_position(lexer);
+    size_t start = lexer->column;
     size_t start_index = lexer->cursor;
     while (isalnum(lexer_peek(lexer))) {
         lexer_advance(lexer);
@@ -94,10 +92,10 @@ LexResult lexer_identifier(Lexer *lexer) {
 char lexer_advance(Lexer *lexer) {
     char current = lexer_peek(lexer);
     if (current == '\n') {
-        lexer->position.row += 1;
-        lexer->position.column = 1;
+        lexer->row += 1;
+        lexer->column = 1;
     } else {
-        lexer->position.column += 1;
+        lexer->column += 1;
     }
     lexer->cursor += 1;
 
@@ -108,14 +106,11 @@ char lexer_peek(Lexer *lexer) {
     return lexer->source[lexer->cursor];
 }
 
-Position lexer_position(Lexer *lexer) {
-    return lexer->position;
-}
-
-Span lexer_span(Lexer *lexer, Position start) {
+Span lexer_span(Lexer *lexer, size_t start) {
     return (Span) {
+        .line = lexer->row,
         .start = start,
-        .end = lexer_position(lexer)
+        .end = lexer->column
     };
 }
 
@@ -128,9 +123,7 @@ LexError lex_error_new_uts(char ch, Span span) {
 }
 
 void lex_error_display(LexError *error, char *source) {
-    Position start = error->span.start;
-    Position end = error->span.end;
-    printf("%ld:%ld | ", start.row, start.column);
+    printf("%ld:%ld | ", error->span.line, error->span.start);
     switch (error->kind) {
         case UNKNOWN_TOKEN_START:
             printf("Unknown start of a token : '%c'\n", error->data);
@@ -138,43 +131,20 @@ void lex_error_display(LexError *error, char *source) {
         default:
             unreachable("lex_error_display");
     }
+
     size_t cursor = 0;
-    size_t row = 1;
-    for (; row < start.row; row++) {
+    for (size_t row = 1; row < error->span.line; row++) {
         while (source[cursor] != '\n') cursor++;
         cursor++;
     }
 
-    // First line
-    size_t start_index = cursor;
     for (; source[cursor] != '\n' && source[cursor] != '\0'; cursor++) {
         printf("%c", source[cursor]);
     }
-    cursor++;
     printf("\n");
 
-    if (start.row == end.row) {
-        for (size_t i = 1; i < start.column; i++) printf(" ");
-        for (size_t i = start.column; i < end.column; i++) printf("^");
-    } else {
-        for (size_t i = 1; i < start.column; i++) printf(" ");
-        for (size_t i = start.column; i < cursor - start_index; i++) printf("^");
-        // Middle lines
-        for (; row < end.row; row++) {
-            start_index = cursor;
-            for (; source[cursor] != '\n'; cursor++) {
-                printf("%c", source[cursor]);
-            }
-            cursor++;
-            for (size_t i = 0; i < cursor - start_index; i++) printf("^");
-        }
-        // Last line
-        start_index = cursor;
-        for (cursor++; source[cursor] != '\n'; cursor++) {
-            printf("%c", source[cursor]);
-        }
-        for (size_t i = 0; i < end.column; i++) printf("^");
-    }
+    for (size_t i = 1; i < error->span.start; i++) printf(" ");
+    for (size_t i = error->span.start; i < error->span.end; i++) printf("^");
 }
 
 LexResult lex_result_new_success(Token token) {

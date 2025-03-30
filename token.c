@@ -65,7 +65,5 @@ void token_display(Token *token) {
             unreachable("token_display");
     }
 
-    printf(" : start(row: %ld, col: %ld) end(row: %ld, col: %ld)",
-           token->span.start.row, token->span.start.column,
-           token->span.end.row, token->span.end.column);
+    printf(" : %ld:%ld-%ld", token->span.line, token->span.start, token->span.end);
 }

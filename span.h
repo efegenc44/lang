@@ -4,15 +4,11 @@
 #include <stdint.h>
 
 typedef struct {
-    size_t row;
-    size_t column;
-} Position;
-
-typedef struct {
-    Position start;
-    Position end;
+    size_t line;
+    size_t start;
+    size_t end;
 } Span;
 
-Span span_new(Position start, Position end);
+Span span_new(size_t line, size_t start, size_t end);
 
 #endif // SPAN_H
