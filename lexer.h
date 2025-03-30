@@ -12,11 +12,21 @@ typedef struct {
 
 typedef struct {
     enum {
+        UNKNOWN_TOKEN_START
+    } kind;
+    char data;
+} LexError;
+
+typedef struct {
+    enum {
         SUCCESS,
         DONE,
         ERROR
     } kind;
-    Token token;
+    union {
+        Token token;
+        LexError error;
+    } as;
 } LexResult;
 
 Lexer lexer_new(char *source);
@@ -27,8 +37,11 @@ LexResult lexer_identifier(Lexer *lexer);
 char lexer_advance(Lexer *lexer);
 char lexer_peek(Lexer *lexer);
 
+LexError lex_error_new_uts(char ch);
+void lex_error_display(LexError *error);
+
 LexResult lex_result_new_success(Token token);
 LexResult lex_result_new_done();
-LexResult lex_result_new_error();
+LexResult lex_result_new_error(LexError error);
 
 #endif // LEXER_H

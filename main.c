@@ -9,10 +9,10 @@ int main() {
     Lexer lexer = lexer_new(source);
     for (LexResult result = lexer_next(&lexer); result.kind != DONE; result = lexer_next(&lexer)) {
         if (result.kind == ERROR) {
-            printf("Error while lexing.");
+            lex_error_display(&result.as.error);
             break;
         } else {
-            token_display(&result.token);
+            token_display(&result.as.token);
             printf("\n");
         }
     }

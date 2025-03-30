@@ -33,7 +33,7 @@ LexResult lexer_next(Lexer *lexer) {
     }
 
     TokenKind kind;
-    switch (lexer_advance(lexer)) {
+    switch (current_char) {
         case '(':
             kind = LEFT_PAREN;
             break;
@@ -47,8 +47,10 @@ LexResult lexer_next(Lexer *lexer) {
             kind = STAR;
             break;
         default:
-            return lex_result_new_error();
+            LexError error = lex_error_new_uts(current_char);
+            return lex_result_new_error(error);
     }
+    lexer_advance(lexer);
 
     Token token = token_new_kind(kind);
     return lex_result_new_success(token);
@@ -87,10 +89,27 @@ char lexer_peek(Lexer *lexer) {
     return lexer->source[lexer->cursor];
 }
 
+LexError lex_error_new_uts(char ch) {
+    return (LexError) {
+        .kind = UNKNOWN_TOKEN_START,
+        .data = ch
+    };
+}
+
+void lex_error_display(LexError *error) {
+    switch (error->kind) {
+        case UNKNOWN_TOKEN_START:
+            printf("Unknown start of a token : '%c'", error->data);
+            break;
+        default:
+            unreachable("lex_error_display");
+    }
+}
+
 LexResult lex_result_new_success(Token token) {
     return (LexResult) {
         .kind = SUCCESS,
-        .token = token
+        .as.token = token
     };
 }
 
@@ -100,8 +119,9 @@ LexResult lex_result_new_done() {
     };
 }
 
-LexResult lex_result_new_error() {
+LexResult lex_result_new_error(LexError error) {
     return (LexResult) {
         .kind = ERROR,
+        .as.error = error
     };
 }
