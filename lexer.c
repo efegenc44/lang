@@ -10,7 +10,11 @@
 Lexer lexer_new(char *source) {
     return (Lexer) {
         .source = source,
-        .cursor = 0
+        .cursor = 0,
+        .position = {
+            .row = 1,
+            .column = 1
+        }
     };
 }
 
@@ -32,6 +36,7 @@ LexResult lexer_next(Lexer *lexer) {
         return lexer_identifier(lexer);
     }
 
+    Position start = lexer_position(lexer);
     TokenKind kind;
     switch (current_char) {
         case '(':
@@ -52,34 +57,46 @@ LexResult lexer_next(Lexer *lexer) {
     }
     lexer_advance(lexer);
 
-    Token token = token_new_kind(kind);
+    Span span = lexer_span(lexer, start);
+    Token token = token_new_kind(kind, span);
     return lex_result_new_success(token);
 }
 
 LexResult lexer_integer(Lexer *lexer) {
+    Position start = lexer_position(lexer);
+
     size_t integer = lexer_advance(lexer) - '0';
     while (isdigit(lexer_peek(lexer))) {
         integer = 10*integer + (lexer_advance(lexer) - '0');
     }
 
-    Token token = token_new_integer(integer);
+    Span span = lexer_span(lexer, start);
+    Token token = token_new_integer(integer, span);
     return lex_result_new_success(token);
 }
 
 LexResult lexer_identifier(Lexer *lexer) {
-    size_t start = lexer->cursor;
+    Position start = lexer_position(lexer);
+    size_t start_index = lexer->cursor;
     while (isalnum(lexer_peek(lexer))) {
         lexer_advance(lexer);
     }
-    size_t length = lexer->cursor - start;
-    char *lexeme = strndup(&lexer->source[start], length);
+    size_t length = lexer->cursor - start_index;
+    char *lexeme = strndup(&lexer->source[start_index], length);
 
-    Token token = token_new_identifier(lexeme);
+    Span span = lexer_span(lexer, start);
+    Token token = token_new_identifier(lexeme, span);
     return lex_result_new_success(token);
 }
 
 char lexer_advance(Lexer *lexer) {
     char current = lexer_peek(lexer);
+    if (current == '\n') {
+        lexer->position.row += 1;
+        lexer->position.column = 1;
+    } else {
+        lexer->position.column += 1;
+    }
     lexer->cursor += 1;
 
     return current;
@@ -87,6 +104,17 @@ char lexer_advance(Lexer *lexer) {
 
 char lexer_peek(Lexer *lexer) {
     return lexer->source[lexer->cursor];
+}
+
+Position lexer_position(Lexer *lexer) {
+    return lexer->position;
+}
+
+Span lexer_span(Lexer *lexer, Position start) {
+    return (Span) {
+        .start = start,
+        .end = lexer_position(lexer)
+    };
 }
 
 LexError lex_error_new_uts(char ch) {

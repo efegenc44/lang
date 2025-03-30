@@ -3,24 +3,28 @@
 
 #include "token.h"
 #include "util.h"
+#include "span.h"
 
-Token token_new_kind(TokenKind kind) {
+Token token_new_kind(TokenKind kind, Span span) {
     return (Token) {
-        .kind = kind
+        .kind = kind,
+        .span = span
     };
 }
 
-Token token_new_integer(size_t integer) {
+Token token_new_integer(size_t integer, Span span) {
     return (Token) {
         .kind = INTEGER,
-        .as.integer = integer
+        .as.integer = integer,
+        .span = span
     };
 }
 
-Token token_new_identifier(char *lexeme) {
+Token token_new_identifier(char *lexeme, Span span) {
     return (Token) {
         .kind = IDENTIFIER,
-        .as.lexeme = lexeme
+        .as.lexeme = lexeme,
+        .span = span
     };
 }
 
@@ -60,4 +64,8 @@ void token_display(Token *token) {
         default:
             unreachable("token_display");
     }
+
+    printf(" : start(row: %ld, col: %ld) end(row: %ld, col: %ld)",
+           token->span.start.row, token->span.start.column,
+           token->span.end.row, token->span.end.column);
 }

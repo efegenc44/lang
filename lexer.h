@@ -4,10 +4,12 @@
 #include <stdint.h>
 
 #include "token.h"
+#include "span.h"
 
 typedef struct {
     char *source;
     size_t cursor;
+    Position position;
 } Lexer;
 
 typedef struct {
@@ -36,6 +38,8 @@ LexResult lexer_integer(Lexer *lexer);
 LexResult lexer_identifier(Lexer *lexer);
 char lexer_advance(Lexer *lexer);
 char lexer_peek(Lexer *lexer);
+Position lexer_position(Lexer *lexer);
+Span lexer_span(Lexer *lexer, Position start);
 
 LexError lex_error_new_uts(char ch);
 void lex_error_display(LexError *error);

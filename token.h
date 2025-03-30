@@ -3,6 +3,8 @@
 
 #include <stdlib.h>
 
+#include "span.h"
+
 typedef enum {
     INTEGER,
     IDENTIFIER,
@@ -20,11 +22,12 @@ typedef union {
 typedef struct {
     TokenKind kind;
     TokenData as;
+    Span span;
 } Token;
 
-Token token_new_kind(TokenKind kind);
-Token token_new_integer(size_t integer);
-Token token_new_identifier(char *lexeme);
+Token token_new_kind(TokenKind kind, Span span);
+Token token_new_integer(size_t integer, Span span);
+Token token_new_identifier(char *lexeme, Span span);
 void token_free(Token *token);
 void token_display(Token *token);
 
