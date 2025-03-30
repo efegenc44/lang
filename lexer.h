@@ -17,6 +17,7 @@ typedef struct {
         UNKNOWN_TOKEN_START
     } kind;
     char data;
+    Span span;
 } LexError;
 
 typedef struct {
@@ -41,8 +42,8 @@ char lexer_peek(Lexer *lexer);
 Position lexer_position(Lexer *lexer);
 Span lexer_span(Lexer *lexer, Position start);
 
-LexError lex_error_new_uts(char ch);
-void lex_error_display(LexError *error);
+LexError lex_error_new_uts(char ch, Span span);
+void lex_error_display(LexError *error, char *source);
 
 LexResult lex_result_new_success(Token token);
 LexResult lex_result_new_done();

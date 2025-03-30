@@ -52,7 +52,9 @@ LexResult lexer_next(Lexer *lexer) {
             kind = STAR;
             break;
         default:
-            LexError error = lex_error_new_uts(current_char);
+            lexer_advance(lexer);
+            Span span = lexer_span(lexer, start);
+            LexError error = lex_error_new_uts(current_char, span);
             return lex_result_new_error(error);
     }
     lexer_advance(lexer);
@@ -117,20 +119,61 @@ Span lexer_span(Lexer *lexer, Position start) {
     };
 }
 
-LexError lex_error_new_uts(char ch) {
+LexError lex_error_new_uts(char ch, Span span) {
     return (LexError) {
         .kind = UNKNOWN_TOKEN_START,
-        .data = ch
+        .data = ch,
+        .span = span
     };
 }
 
-void lex_error_display(LexError *error) {
+void lex_error_display(LexError *error, char *source) {
+    Position start = error->span.start;
+    Position end = error->span.end;
+    printf("%ld:%ld | ", start.row, start.column);
     switch (error->kind) {
         case UNKNOWN_TOKEN_START:
-            printf("Unknown start of a token : '%c'", error->data);
+            printf("Unknown start of a token : '%c'\n", error->data);
             break;
         default:
             unreachable("lex_error_display");
+    }
+    size_t cursor = 0;
+    size_t row = 1;
+    for (; row < start.row; row++) {
+        while (source[cursor] != '\n') cursor++;
+        cursor++;
+    }
+
+    // First line
+    size_t start_index = cursor;
+    for (; source[cursor] != '\n' && source[cursor] != '\0'; cursor++) {
+        printf("%c", source[cursor]);
+    }
+    cursor++;
+    printf("\n");
+
+    if (start.row == end.row) {
+        for (size_t i = 1; i < start.column; i++) printf(" ");
+        for (size_t i = start.column; i < end.column; i++) printf("^");
+    } else {
+        for (size_t i = 1; i < start.column; i++) printf(" ");
+        for (size_t i = start.column; i < cursor - start_index; i++) printf("^");
+        // Middle lines
+        for (; row < end.row; row++) {
+            start_index = cursor;
+            for (; source[cursor] != '\n'; cursor++) {
+                printf("%c", source[cursor]);
+            }
+            cursor++;
+            for (size_t i = 0; i < cursor - start_index; i++) printf("^");
+        }
+        // Last line
+        start_index = cursor;
+        for (cursor++; source[cursor] != '\n'; cursor++) {
+            printf("%c", source[cursor]);
+        }
+        for (size_t i = 0; i < end.column; i++) printf("^");
     }
 }
 
