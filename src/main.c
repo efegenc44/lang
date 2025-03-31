@@ -5,6 +5,7 @@
 
 #include "lexer.h"
 #include "token.h"
+#include "parser.h"
 
 void repl() {
     while (true) {
@@ -21,18 +22,10 @@ void repl() {
         }
 
         Lexer lexer = lexer_new(input);
+        Parser parser = parser_new(lexer);
 
-        printf("TOKENS: \n");
-        LEXER_ITERATE(result, lexer) {
-            if (result.kind == ERROR) {
-                lex_error_display(&result.as.error, input);
-                break;
-            } else {
-                printf("    ");
-                token_display(&result.as.token);
-                printf("\n");
-            }
-        }
+        Expr e = parser_expr(&parser);
+        expr_display(&e, 0);
     }
 }
 
