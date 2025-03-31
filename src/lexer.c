@@ -145,6 +145,7 @@ void lex_error_display(LexError *error, char *source) {
 
     for (size_t i = 1; i < error->span.start; i++) printf(" ");
     for (size_t i = error->span.start; i < error->span.end; i++) printf("^");
+    printf("\n");
 }
 
 LexResult lex_result_new_success(Token token) {
