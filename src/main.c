@@ -23,7 +23,7 @@ void repl() {
         Lexer lexer = lexer_new(input);
 
         printf("TOKENS: \n");
-        for (LexResult result = lexer_next(&lexer); result.kind != DONE; result = lexer_next(&lexer)) {
+        LEXER_ITERATE(result, lexer) {
             if (result.kind == ERROR) {
                 lex_error_display(&result.as.error, input);
                 break;

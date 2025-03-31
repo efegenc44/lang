@@ -6,6 +6,9 @@
 #include "token.h"
 #include "span.h"
 
+#define LEXER_ITERATE(result, lexer) \
+    for (LexResult result = lexer_next(&(lexer)); result.kind != DONE; result = lexer_next(&(lexer)))
+
 typedef struct {
     char *source;
     size_t cursor;
