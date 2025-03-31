@@ -10,5 +10,6 @@ typedef struct {
 } Span;
 
 Span span_new(size_t line, size_t start, size_t end);
+void span_display_start(Span *span);
 
 #endif // SPAN_H

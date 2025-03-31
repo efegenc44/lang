@@ -42,6 +42,7 @@ typedef union {
 struct Expr {
     ExprKind kind;
     ExprData as;
+    Span sign_span;
 };
 
 Parser parser_new(Lexer lexer);
@@ -54,9 +55,9 @@ Token parser_expect_kind(Parser *parser, TokenKind kind);
 
 BOp from_token_kind(TokenKind kind);
 
-Expr expr_new_integer(size_t integer);
-Expr expr_new_identifier(char *identifier);
-Expr expr_new_binary(Expr lhs, BOp bop, Expr rhs);
+Expr expr_new_integer(Token token);
+Expr expr_new_identifier(Token token);
+Expr expr_new_binary(Expr lhs, Token bop, Expr rhs);
 void expr_display(Expr *expr, size_t depth);
 
 Expr *box_expr(Expr expr);

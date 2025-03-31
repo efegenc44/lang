@@ -123,7 +123,9 @@ LexError lex_error_new_uts(char ch, Span span) {
 }
 
 void lex_error_display(LexError *error, char *source) {
-    printf("%ld:%ld | ", error->span.line, error->span.start);
+    span_display_start(&error->span);
+    printf(" | ");
+
     switch (error->kind) {
         case UNKNOWN_TOKEN_START:
             printf("Unknown start of a token : '%c'\n", error->data);

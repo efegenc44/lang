@@ -45,7 +45,7 @@ Expr parser_binary(Parser *parser, size_t min_prec) {
                 parser_advance_token(parser);
                 size_t prec = PrecTable[bop] + (AssocTable[bop] != ASSOC_RIGHT);
                 Expr rhs = parser_binary(parser, prec);
-                lhs = expr_new_binary(lhs, bop, rhs);
+                lhs = expr_new_binary(lhs, token, rhs);
                 if (AssocTable[bop] == ASSOC_NONE) goto end;
                 break;
             default:
@@ -67,10 +67,10 @@ Expr parser_primary(Parser *parser) {
     Expr expr = {0};
     switch (token.kind) {
         case EXPR_INTEGER:
-            expr = expr_new_integer(token.as.integer);
+            expr = expr_new_integer(token);
             break;
         case EXPR_IDENTIFIER:
-            expr = expr_new_identifier(token.as.lexeme);
+            expr = expr_new_identifier(token);
             break;
         case LEFT_PAREN:
             expr = parser_expr(parser);
@@ -122,28 +122,32 @@ BOp from_token_kind(TokenKind kind) {
     return bop;
 }
 
-Expr expr_new_integer(size_t integer) {
+Expr expr_new_integer(Token token) {
     return (Expr) {
         .kind = EXPR_INTEGER,
-        .as.integer = integer
+        .as.integer = token.as.integer,
+        .sign_span = token.span
     };
 }
 
-Expr expr_new_identifier(char *identifier) {
+Expr expr_new_identifier(Token token) {
     return (Expr) {
         .kind = EXPR_IDENTIFIER,
-        .as.identifier = identifier
+        .as.identifier = token.as.lexeme,
+        .sign_span = token.span
     };
 }
 
-Expr expr_new_binary(Expr lhs, BOp bop, Expr rhs) {
+Expr expr_new_binary(Expr lhs, Token bop, Expr rhs) {
     return (Expr) {
         .kind = EXPR_BINARY,
+        // TODO: Memory management
         .as.binary = {
             .lhs = box_expr(lhs),
-            .bop = bop,
+            .bop = from_token_kind(bop.kind),
             .rhs = box_expr(rhs)
-        }
+        },
+        .sign_span = bop.span
     };
 }
 
@@ -151,22 +155,31 @@ void expr_display(Expr *expr, size_t depth) {
     for (size_t i = 0; i < depth*2; i++) printf(" ");
     switch (expr->kind) {
         case EXPR_INTEGER:
-            printf("%ld\n", expr->as.integer);
+            printf("%ld", expr->as.integer);
+            printf(" | ");
+            span_display_start(&expr->sign_span);
+            printf("\n");
             break;
         case EXPR_IDENTIFIER:
-            printf("%s\n", expr->as.identifier);
+            printf("%s", expr->as.identifier);
+            printf(" | ");
+            span_display_start(&expr->sign_span);
+            printf("\n");
             break;
         case EXPR_BINARY:
             switch (expr->as.binary.bop) {
                 case BOP_ADD:
-                    printf("+\n");
+                    printf("+");
                     break;
                 case BOP_MUL:
-                    printf("*\n");
+                    printf("*");
                     break;
                 default:
                     unreachable("expr_display binary_expr");
             }
+            printf(" | ");
+            span_display_start(&expr->sign_span);
+            printf("\n");
             expr_display(expr->as.binary.lhs, depth + 1);
             expr_display(expr->as.binary.rhs, depth + 1);
             break;
