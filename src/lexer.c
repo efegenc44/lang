@@ -5,7 +5,6 @@
 
 #include "lexer.h"
 #include "token.h"
-#include "util.h"
 
 Lexer lexer_new(char *source) {
     return (Lexer) {
@@ -130,8 +129,6 @@ void lex_error_display(LexError *error, char *source) {
         case UNKNOWN_TOKEN_START:
             printf("Unknown start of a token : '%c'\n", error->data);
             break;
-        default:
-            unreachable("lex_error_display");
     }
 
     size_t cursor = 0;

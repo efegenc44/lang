@@ -3,7 +3,6 @@
 #include <stdio.h>
 
 #include "parser.h"
-#include "util.h"
 
 const size_t PrecTable[2] = {
     [BOP_ADD] = 1,
@@ -77,7 +76,9 @@ Expr parser_primary(Parser *parser) {
             parser_expect_kind(parser, RIGHT_PAREN);
             break;
         default:
-            unreachable("parse_primary");
+            // TODO: Error handling
+            // Unexpected token
+            assert(false);
     }
 
     return expr;
@@ -107,19 +108,11 @@ Token parser_expect_kind(Parser *parser, TokenKind kind) {
 }
 
 BOp from_token_kind(TokenKind kind) {
-    BOp bop = {0};
     switch (kind) {
-        case PLUS:
-            bop = BOP_ADD;
-            break;
-        case STAR:
-            bop = BOP_MUL;
-            break;
-        default:
-            unreachable("from_token_kind");
+        case PLUS: return BOP_ADD;
+        case STAR: return BOP_MUL;
+        default: assert(false);
     }
-
-    return bop;
 }
 
 Expr expr_new_integer(Token token) {
@@ -174,8 +167,6 @@ void expr_display(Expr *expr, size_t depth) {
                 case BOP_MUL:
                     printf("*");
                     break;
-                default:
-                    unreachable("expr_display binary_expr");
             }
             printf(" | ");
             span_display_start(&expr->sign_span);
@@ -183,8 +174,6 @@ void expr_display(Expr *expr, size_t depth) {
             expr_display(expr->as.binary.lhs, depth + 1);
             expr_display(expr->as.binary.rhs, depth + 1);
             break;
-        default:
-            unreachable("expr_display");
     }
 }
 

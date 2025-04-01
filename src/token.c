@@ -2,7 +2,6 @@
 #include <stdlib.h>
 
 #include "token.h"
-#include "util.h"
 #include "span.h"
 
 Token token_new_kind(TokenKind kind, Span span) {
@@ -35,9 +34,9 @@ void token_free(Token *token) {
         case INTEGER:
         case LEFT_PAREN:
         case RIGHT_PAREN:
+        case PLUS:
+        case STAR:
             break;
-        default:
-            unreachable("token_free");
     }
 }
 
@@ -61,8 +60,6 @@ void token_display(Token *token) {
         case STAR:
             printf("*");
             break;
-        default:
-            unreachable("token_display");
     }
 
     printf(" : %ld:%ld-%ld", token->span.line, token->span.start, token->span.end);
