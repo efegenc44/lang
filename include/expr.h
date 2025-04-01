@@ -1,0 +1,57 @@
+#ifndef EXPR_H
+#define EXPR_H
+
+#include <stddef.h>
+
+#include "token.h"
+#include "span.h"
+
+typedef struct Expr Expr;
+
+typedef enum {
+    BOP_ADD,
+    BOP_MUL,
+} BOp;
+
+typedef enum {
+    ASSOC_RIGHT,
+    ASSOC_LEFT,
+    ASSOC_NONE
+} Assoc;
+
+typedef struct {
+    Expr *lhs;
+    BOp bop;
+    Expr *rhs;
+} Binary;
+
+typedef enum {
+    EXPR_INTEGER,
+    EXPR_IDENTIFIER,
+    EXPR_BINARY
+} ExprKind;
+
+typedef union {
+    size_t integer;
+    char *identifier;
+    Binary binary;
+} ExprData;
+
+struct Expr {
+    ExprKind kind;
+    ExprData as;
+    Span sign_span;
+};
+
+extern const size_t PrecTable[2];
+extern const Assoc AssocTable[2];
+
+BOp bop_from_token_kind(TokenKind kind);
+
+Expr expr_new_integer(Token token);
+Expr expr_new_identifier(Token token);
+Expr expr_new_binary(Expr lhs, Token bop, Expr rhs);
+void expr_display(Expr *expr, size_t depth);
+Expr *expr_box(Expr expr);
+
+#endif // EXPR_H
