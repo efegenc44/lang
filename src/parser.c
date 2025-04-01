@@ -53,23 +53,23 @@ Expr parser_primary(Parser *parser) {
     assert(result.kind == SUCCESS);
     Token token = result.as.token;
 
-    Expr expr = {0};
     switch (token.kind) {
         case EXPR_INTEGER:
-            expr = expr_new_integer(token);
-            break;
+            return expr_new_integer(token);
         case EXPR_IDENTIFIER:
-            expr = expr_new_identifier(token);
-            break;
+            return expr_new_identifier(token);
         case LEFT_PAREN:
-            expr = parser_expr(parser);
-            parser_expect_kind(parser, RIGHT_PAREN);
-            break;
+            return parser_finish_paren(parser);
         default:
             // TODO: Error handling
             // Unexpected token
             assert(false);
     }
+}
+
+Expr parser_finish_paren(Parser *parser) {
+    Expr expr = parser_expr(parser);
+    parser_expect_kind(parser, RIGHT_PAREN);
 
     return expr;
 }
