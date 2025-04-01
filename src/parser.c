@@ -33,25 +33,24 @@ Expr parser_binary(Parser *parser, size_t min_prec) {
         LexResult peek = parser_peek_token(parser);
         // TODO: Error handling
         assert(peek.kind != ERROR);
-        if (peek.kind == DONE) goto end;
+        if (peek.kind == DONE) return lhs;
         Token token = peek.as.token;
 
         switch (token.kind) {
             case PLUS:
             case STAR:
                 BOp bop = from_token_kind(token.kind);
-                if (PrecTable[bop] < min_prec) goto end;
+                if (PrecTable[bop] < min_prec) return lhs;
                 parser_advance_token(parser);
                 size_t prec = PrecTable[bop] + (AssocTable[bop] != ASSOC_RIGHT);
                 Expr rhs = parser_binary(parser, prec);
                 lhs = expr_new_binary(lhs, token, rhs);
-                if (AssocTable[bop] == ASSOC_NONE) goto end;
+                if (AssocTable[bop] == ASSOC_NONE) return lhs;
                 break;
             default:
-                goto end;
+                return lhs;
         }
     }
-    end:
 
     return lhs;
 }
