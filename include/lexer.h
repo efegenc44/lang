@@ -37,7 +37,6 @@ typedef struct {
 } LexResult;
 
 Lexer lexer_new(char *source);
-void lexer_free(Lexer* lexer);
 LexResult lexer_next(Lexer *lexer);
 LexResult lexer_integer(Lexer *lexer);
 LexResult lexer_identifier(Lexer *lexer);
