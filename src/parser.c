@@ -19,10 +19,11 @@ ParseResult parser_expr(Parser *parser) {
 
 ParseResult parser_binary(Parser *parser, size_t min_prec) {
     BINDParse(lhs, parser_primary(parser));
-    while (true) {
-        LexResult result = parser_peek_token(parser);
+    for (LexResult result = parser_peek_token(parser);
+         result.kind != DONE;
+         result = parser_peek_token(parser))
+    {
         CHECK_LEX_ERROR(result);
-        if (result.kind == DONE) goto end;
         Token token = result.as.token;
         switch (token.kind) {
             case PLUS:
@@ -32,7 +33,7 @@ ParseResult parser_binary(Parser *parser, size_t min_prec) {
                 parser_advance_token(parser);
                 size_t prec = PrecTable[bop] + (AssocTable[bop] != ASSOC_RIGHT);
                 BINDParse(rhs, parser_binary(parser, prec));
-                lhs = expr_new_binary(lhs, token, rhs);
+                lhs = expr_new_binary(lhs, bop, rhs, token.span);
                 if (AssocTable[bop] == ASSOC_NONE) goto end;
                 break;
             default:
@@ -47,10 +48,10 @@ ParseResult parser_primary(Parser *parser) {
     BINDLex(token, parser_advance_token(parser));
     switch (token.kind) {
         case EXPR_INTEGER:
-            Expr expr_int = expr_new_integer(token);
+            Expr expr_int = expr_new_integer(token.as.integer, token.span);
             return parse_result_new_success_expr(expr_int);
         case EXPR_IDENTIFIER:
-            Expr expr_ident = expr_new_identifier(token);
+            Expr expr_ident = expr_new_identifier(token.as.lexeme, token.span);
             return parse_result_new_success_expr(expr_ident);
         case LEFT_PAREN:
             return parser_finish_paren(parser);

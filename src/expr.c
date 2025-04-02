@@ -23,32 +23,32 @@ BOp bop_from_token_kind(TokenKind kind) {
     }
 }
 
-Expr expr_new_integer(Token token) {
+Expr expr_new_integer(size_t integer, Span span) {
     return (Expr) {
         .kind = EXPR_INTEGER,
-        .as.integer = token.as.integer,
-        .sign_span = token.span
+        .as.integer = integer,
+        .sign_span = span
     };
 }
 
-Expr expr_new_identifier(Token token) {
+Expr expr_new_identifier(char *identifier, Span span) {
     return (Expr) {
         .kind = EXPR_IDENTIFIER,
-        .as.identifier = token.as.lexeme,
-        .sign_span = token.span
+        .as.identifier = identifier,
+        .sign_span = span
     };
 }
 
-Expr expr_new_binary(Expr lhs, Token bop, Expr rhs) {
+Expr expr_new_binary(Expr lhs, BOp bop, Expr rhs, Span span) {
     return (Expr) {
         .kind = EXPR_BINARY,
         // TODO: Memory management
         .as.binary = {
             .lhs = expr_box(lhs),
-            .bop = bop_from_token_kind(bop.kind),
+            .bop = bop,
             .rhs = expr_box(rhs)
         },
-        .sign_span = bop.span
+        .sign_span = span
     };
 }
 

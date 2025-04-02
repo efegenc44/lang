@@ -35,7 +35,7 @@ LexResult lexer_next(Lexer *lexer) {
 
     size_t start = lexer->column;
     TokenKind kind;
-    switch (current_char) {
+    switch (lexer_advance(lexer)) {
         case '(':
             kind = LEFT_PAREN;
             break;
@@ -49,12 +49,10 @@ LexResult lexer_next(Lexer *lexer) {
             kind = STAR;
             break;
         default:
-            lexer_advance(lexer);
             Span span = lexer_span(lexer, start);
             LexError error = lex_error_new_uts(current_char, span);
             return lex_result_new_error(error);
     }
-    lexer_advance(lexer);
 
     Span span = lexer_span(lexer, start);
     Token token = token_new_kind(kind, span);

@@ -48,9 +48,9 @@ extern const Assoc AssocTable[2];
 
 BOp bop_from_token_kind(TokenKind kind);
 
-Expr expr_new_integer(Token token);
-Expr expr_new_identifier(Token token);
-Expr expr_new_binary(Expr lhs, Token bop, Expr rhs);
+Expr expr_new_integer(size_t integer, Span span);
+Expr expr_new_identifier(char *identifier, Span span);
+Expr expr_new_binary(Expr lhs, BOp bop, Expr rhs, Span span);
 void expr_display(Expr *expr, size_t depth);
 Expr *expr_box(Expr expr);
 
