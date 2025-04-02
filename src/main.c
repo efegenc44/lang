@@ -30,10 +30,6 @@ void repl() {
                 ParseError parse_error = result.as.error;
                 parse_error_display(&parse_error, input);
                 break;
-            case PARSE_RESULT_LEX_ERROR:
-                LexError lex_error = result.as.lex_error;
-                lex_error_display(&lex_error, input);
-                break;
             case PARSE_RESULT_SUCCESS:
                 Expr e = result.as.expr;
                 expr_display(&e, 0);

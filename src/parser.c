@@ -91,7 +91,7 @@ ParseResult parser_expect_kind(Parser *parser, TokenKind kind) {
 ParseError parse_error_new_ut(Token token) {
     return (ParseError) {
         .kind = UNEXPECTED_TOKEN,
-        .token = token
+        .as.token = token
     };
 }
 
@@ -101,27 +101,40 @@ ParseError parse_error_new_ueof() {
     };
 }
 
+ParseError parse_error_new_lex_error(LexError error) {
+    return (ParseError) {
+        .kind = LEX_ERROR,
+        .as.lex_error = error
+    };
+}
+
 void parse_error_display(ParseError *error, char *source) {
-    if (error->kind == UNEXPECTED_EOF) {
-        error->token.span = span_new(1, 1, 2);
+    if (error->kind == LEX_ERROR) {
+        return lex_error_display(&error->as.lex_error, source);
     }
 
-    span_display_start(&error->token.span);
+    if (error->kind == UNEXPECTED_EOF) {
+        error->as.token.span = span_new(1, 1, 2);
+    }
+
+    span_display_start(&error->as.token.span);
     printf(" | ");
 
     switch (error->kind) {
         case UNEXPECTED_TOKEN:
             printf("Unexpected token : '");
-            token_display(&error->token);
+            token_display(&error->as.token);
             printf("'\n");
             break;
         case UNEXPECTED_EOF:
             printf("Unknown end of line\n");
             break;
+        case LEX_ERROR:
+            assert(false);
     }
 
     size_t cursor = 0;
-    for (size_t row = 1; row < error->token.span.line; row++) {
+    for (size_t row = 1; row < error->as.token.span.line; row++) {
         while (source[cursor] != '\n') cursor++;
         cursor++;
     }
@@ -131,8 +144,8 @@ void parse_error_display(ParseError *error, char *source) {
     }
     printf("\n");
 
-    for (size_t i = 1; i < error->token.span.start; i++) printf(" ");
-    for (size_t i = error->token.span.start; i < error->token.span.end; i++) printf("^");
+    for (size_t i = 1; i < error->as.token.span.start; i++) printf(" ");
+    for (size_t i = error->as.token.span.start; i < error->as.token.span.end; i++) printf("^");
     printf("\n");
 }
 
@@ -154,12 +167,5 @@ ParseResult parse_result_new_error(ParseError error) {
     return (ParseResult) {
         .kind = PARSE_RESULT_ERROR,
         .as.error = error
-    };
-}
-
-ParseResult parse_result_new_lex_error(LexError error) {
-    return (ParseResult) {
-        .kind = PARSE_RESULT_LEX_ERROR,
-        .as.lex_error = error
     };
 }

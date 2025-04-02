@@ -4,15 +4,30 @@
 #include "lexer.h"
 #include "expr.h"
 
-#define CHECK_PARSE_ERROR(result)                         \
-    switch ((result).kind) {                              \
-        case PARSE_RESULT_ERROR:                          \
-            return (result);                              \
-        case PARSE_RESULT_LEX_ERROR:                      \
-            LexError lex_error = (result).as.lex_error;   \
-            return parse_result_new_lex_error(lex_error); \
-        case PARSE_RESULT_SUCCESS:                        \
-    }                                                     \
+#define CHECK_LEX_ERROR(result)                                        \
+    if ((result).kind == ERROR) {                                      \
+        ParseError error = parse_error_new_lex_error(result.as.error); \
+        return parse_result_new_error(error);                          \
+    }                                                                  \
+
+#define CHECK_LEX_DONE(result)                     \
+    if ((result).kind == DONE) {                   \
+        ParseError error = parse_error_new_ueof(); \
+        return parse_result_new_error(error);      \
+    }                                              \
+
+#define BINDLex(name, expr)               \
+    LexResult name##_result = (expr);     \
+    CHECK_LEX_ERROR(name##_result);       \
+    CHECK_LEX_DONE(name##_result);        \
+    Token name = (name##_result).as.token \
+
+#define CHECK_PARSE_ERROR(result)  \
+    switch ((result).kind) {       \
+        case PARSE_RESULT_ERROR:   \
+            return (result);       \
+        case PARSE_RESULT_SUCCESS: \
+    }                              \
 
 #define BINDParse(name, parse_expr)           \
     ParseResult name##_result = (parse_expr); \
@@ -33,22 +48,24 @@ typedef struct {
 typedef struct {
     enum {
         UNEXPECTED_TOKEN,
-        UNEXPECTED_EOF
+        UNEXPECTED_EOF,
+        LEX_ERROR,
     } kind;
-    Token token;
+    union {
+        Token token;
+        LexError lex_error;
+    } as;
 } ParseError;
 
 typedef struct {
     enum {
         PARSE_RESULT_SUCCESS,
         PARSE_RESULT_ERROR,
-        PARSE_RESULT_LEX_ERROR,
     } kind;
     union {
         Expr expr;
-        Token token;
+        Token token; // unnecessary?
         ParseError error;
-        LexError lex_error;
     } as;
 } ParseResult;
 
@@ -63,11 +80,11 @@ ParseResult parser_expect_kind(Parser *parser, TokenKind kind);
 
 ParseError parse_error_new_ut(Token token);
 ParseError parse_error_new_ueof();
+ParseError parse_error_new_lex_error(LexError error);
 void parse_error_display(ParseError *error, char *source);
 
 ParseResult parse_result_new_success_expr(Expr expr);
 ParseResult parse_result_new_success_token(Token token);
 ParseResult parse_result_new_error(ParseError error);
-ParseResult parse_result_new_lex_error(LexError error);
 
 #endif // PARSER_H
