@@ -9,6 +9,23 @@
 #define LEXER_ITERATE(result, lexer) \
     for (LexResult result = lexer_next(&(lexer)); result.kind != DONE; result = lexer_next(&(lexer)))
 
+#define CHECK_LEX_ERROR(result)                               \
+    if ((result).kind == ERROR) {                             \
+        return parse_result_new_lex_error((result).as.error); \
+    }                                                         \
+
+#define CHECK_LEX_DONE(result)                     \
+    if ((result).kind == DONE) {                   \
+        ParseError error = parse_error_new_ueof(); \
+        return parse_result_new_error(error);      \
+    }                                              \
+
+#define BINDLex(name, expr)               \
+    LexResult name##_result = (expr);     \
+    CHECK_LEX_ERROR(name##_result);       \
+    CHECK_LEX_DONE(name##_result);        \
+    Token name = (name##_result).as.token \
+
 typedef struct {
     char *source;
     size_t cursor;

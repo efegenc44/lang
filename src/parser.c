@@ -18,7 +18,7 @@ ParseResult parser_expr(Parser *parser) {
 }
 
 ParseResult parser_binary(Parser *parser, size_t min_prec) {
-    DOParse(lhs, parser_primary(parser));
+    BINDParse(lhs, parser_primary(parser));
     while (true) {
         LexResult result = parser_peek_token(parser);
         CHECK_LEX_ERROR(result);
@@ -31,7 +31,7 @@ ParseResult parser_binary(Parser *parser, size_t min_prec) {
                 if (PrecTable[bop] < min_prec) goto end;
                 parser_advance_token(parser);
                 size_t prec = PrecTable[bop] + (AssocTable[bop] != ASSOC_RIGHT);
-                DOParse(rhs, parser_binary(parser, prec));
+                BINDParse(rhs, parser_binary(parser, prec));
                 lhs = expr_new_binary(lhs, token, rhs);
                 if (AssocTable[bop] == ASSOC_NONE) goto end;
                 break;
@@ -44,7 +44,7 @@ end:
 }
 
 ParseResult parser_primary(Parser *parser) {
-    DOLex(token, parser_advance_token(parser));
+    BINDLex(token, parser_advance_token(parser));
     switch (token.kind) {
         case EXPR_INTEGER:
             Expr expr_int = expr_new_integer(token);
@@ -61,8 +61,8 @@ ParseResult parser_primary(Parser *parser) {
 }
 
 ParseResult parser_finish_paren(Parser *parser) {
-    DOParse(expr, parser_expr(parser));
-    DOParse(_, parser_expect_kind(parser, RIGHT_PAREN));
+    BINDParse(expr, parser_expr(parser));
+    DOParse(parser_expect_kind(parser, RIGHT_PAREN));
 
     return parse_result_new_success_expr(expr);
 }
@@ -79,7 +79,7 @@ LexResult parser_peek_token(Parser *parser) {
 }
 
 ParseResult parser_expect_kind(Parser *parser, TokenKind kind) {
-    DOLex(token, parser_advance_token(parser));
+    BINDLex(token, parser_advance_token(parser));
     if (token.kind == kind) {
         return parse_result_new_success_token(token);
     } else {

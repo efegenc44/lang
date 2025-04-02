@@ -4,24 +4,7 @@
 #include "lexer.h"
 #include "expr.h"
 
-#define CHECK_LEX_ERROR(result)                               \
-    if ((result).kind == ERROR) {                             \
-        return parse_result_new_lex_error((result).as.error); \
-    }                                                         \
-
-#define CHECK_LEX_DONE(result)                     \
-    if ((result).kind == DONE) {                   \
-        ParseError error = parse_error_new_ueof(); \
-        return parse_result_new_error(error);      \
-    }                                              \
-
-#define DOLex(name, expr)                       \
-            LexResult name##_result = (expr);   \
-            CHECK_LEX_ERROR(name##_result);     \
-            CHECK_LEX_DONE(name##_result);      \
-            Token name = name##_result.as.token \
-
-#define CHECK_PARSE_ERROR(name, result)                   \
+#define CHECK_PARSE_ERROR(result)                         \
     switch ((result).kind) {                              \
         case PARSE_RESULT_ERROR:                          \
             return (result);                              \
@@ -30,11 +13,17 @@
             return parse_result_new_lex_error(lex_error); \
         case PARSE_RESULT_SUCCESS:                        \
     }                                                     \
-    Expr name = (result).as.expr;                         \
 
-#define DOParse(name, expr)                 \
-    ParseResult name##_result = (expr);     \
-    CHECK_PARSE_ERROR(name, name##_result); \
+#define BINDParse(name, parse_expr)           \
+    ParseResult name##_result = (parse_expr); \
+    CHECK_PARSE_ERROR(name##_result);         \
+    Expr name = (name##_result).as.expr;      \
+
+#define DOParse(expr)                \
+    {                                \
+        ParseResult result = (expr); \
+        CHECK_PARSE_ERROR(result);   \
+    }                                \
 
 typedef struct {
     Lexer lexer;
