@@ -81,7 +81,7 @@ ParseResult parser_expect_kind(Parser *parser, TokenKind kind);
 ParseError parse_error_new_ut(Token token);
 ParseError parse_error_new_ueof();
 ParseError parse_error_new_lex_error(LexError error);
-void parse_error_display(ParseError *error, char *source);
+void parse_error_display(ParseError *error, char *source, char *source_name);
 
 ParseResult parse_result_new_success_expr(Expr expr);
 ParseResult parse_result_new_success_token(Token token);

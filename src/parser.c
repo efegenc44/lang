@@ -109,44 +109,28 @@ ParseError parse_error_new_lex_error(LexError error) {
     };
 }
 
-void parse_error_display(ParseError *error, char *source) {
+void parse_error_display(ParseError *error, char *source, char *source_name) {
     if (error->kind == LEX_ERROR) {
-        return lex_error_display(&error->as.lex_error, source);
+        return lex_error_display(&error->as.lex_error, source, source_name);
     }
 
-    if (error->kind == UNEXPECTED_EOF) {
-        error->as.token.span = span_new(1, 1, 2);
-    }
-
-    span_display_start(&error->as.token.span);
-    printf(" | ");
+    span_display_location(&error->as.token.span, source_name);
+    printf(": error: ");
 
     switch (error->kind) {
         case UNEXPECTED_TOKEN:
             printf("Unexpected token : '");
             token_display(&error->as.token);
-            printf("'\n");
             break;
         case UNEXPECTED_EOF:
-            printf("Unknown end of line\n");
-            break;
+            printf("Unexpected end of line\n");
+            return;
         case LEX_ERROR:
             assert(false);
     }
 
-    size_t cursor = 0;
-    for (size_t row = 1; row < error->as.token.span.line; row++) {
-        while (source[cursor] != '\n') cursor++;
-        cursor++;
-    }
-
-    for (; source[cursor] != '\n' && source[cursor] != '\0'; cursor++) {
-        printf("%c", source[cursor]);
-    }
-    printf("\n");
-
-    for (size_t i = 1; i < error->as.token.span.start; i++) printf(" ");
-    for (size_t i = error->as.token.span.start; i < error->as.token.span.end; i++) printf("^");
+    printf(" (at parsing)\n");
+    span_display_in_source(&error->as.token.span, source);
     printf("\n");
 }
 

@@ -119,29 +119,18 @@ LexError lex_error_new_uts(char ch, Span span) {
     };
 }
 
-void lex_error_display(LexError *error, char *source) {
-    span_display_start(&error->span);
-    printf(" | ");
+void lex_error_display(LexError *error, char *source, char *source_name) {
+    span_display_location(&error->span, source_name);
+    printf(": error: ");
 
     switch (error->kind) {
         case UNKNOWN_TOKEN_START:
-            printf("Unknown start of a token : '%c'\n", error->data);
+            printf("Unknown start of a token : '%c'", error->data);
             break;
     }
 
-    size_t cursor = 0;
-    for (size_t row = 1; row < error->span.line; row++) {
-        while (source[cursor] != '\n') cursor++;
-        cursor++;
-    }
-
-    for (; source[cursor] != '\n' && source[cursor] != '\0'; cursor++) {
-        printf("%c", source[cursor]);
-    }
-    printf("\n");
-
-    for (size_t i = 1; i < error->span.start; i++) printf(" ");
-    for (size_t i = error->span.start; i < error->span.end; i++) printf("^");
+    printf(" (at tokenizing)\n");
+    span_display_in_source(&error->span, source);
     printf("\n");
 }
 

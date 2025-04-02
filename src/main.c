@@ -28,13 +28,14 @@ void repl() {
         switch (result.kind) {
             case PARSE_RESULT_ERROR:
                 ParseError parse_error = result.as.error;
-                parse_error_display(&parse_error, input);
+                parse_error_display(&parse_error, input, "REPL");
                 break;
             case PARSE_RESULT_SUCCESS:
                 Expr e = result.as.expr;
                 expr_display(&e, 0);
                 break;
         }
+        printf("\n");
     }
 }
 

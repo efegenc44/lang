@@ -45,7 +45,7 @@ char lexer_peek(Lexer *lexer);
 Span lexer_span(Lexer *lexer, size_t start);
 
 LexError lex_error_new_uts(char ch, Span span);
-void lex_error_display(LexError *error, char *source);
+void lex_error_display(LexError *error, char *source, char *source_name);
 
 LexResult lex_result_new_success(Token token);
 LexResult lex_result_new_done();
