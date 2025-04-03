@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "span.h"
+#include "interner.h"
 
 typedef enum {
     INTEGER,
@@ -16,7 +17,7 @@ typedef enum {
 
 typedef union {
     size_t integer;
-    char *lexeme;
+    InternId lexeme_id;
 } TokenData;
 
 typedef struct {
@@ -27,8 +28,7 @@ typedef struct {
 
 Token Token_kind(TokenKind kind, Span span);
 Token Token_integer(size_t integer, Span span);
-Token Token_identifier(char *lexeme, Span span);
-void Token_free(Token *token);
-void Token_display(Token *token);
+Token Token_identifier(InternId lexeme_id, Span span);
+void Token_display(Token *token, Interner *interner);
 
 #endif // TOKEN_H

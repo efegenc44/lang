@@ -31,10 +31,10 @@ Expr Expr_integer(size_t integer, Span span) {
     };
 }
 
-Expr Expr_identifier(char *identifier, Span span) {
+Expr Expr_identifier(InternId identifier_id, Span span) {
     return (Expr) {
         .kind = EXPR_IDENTIFIER,
-        .as.identifier = identifier,
+        .as.identifier_id = identifier_id,
         .sign_span = span
     };
 }
@@ -52,7 +52,7 @@ Expr Expr_binary(Expr lhs, BOp bop, Expr rhs, Span span) {
     };
 }
 
-void Expr_display(Expr *expr, size_t depth) {
+void Expr_display(Expr *expr, Interner *interner, size_t depth) {
     for (size_t i = 0; i < depth*2; i++) printf(" ");
     switch (expr->kind) {
         case EXPR_INTEGER:
@@ -62,7 +62,7 @@ void Expr_display(Expr *expr, size_t depth) {
             printf("\n");
             break;
         case EXPR_IDENTIFIER:
-            printf("%s", expr->as.identifier);
+            printf("%s", Interner_get(interner, expr->as.identifier_id));
             printf(" | ");
             Span_display_start(&expr->sign_span);
             printf("\n");
@@ -79,8 +79,8 @@ void Expr_display(Expr *expr, size_t depth) {
             printf(" | ");
             Span_display_start(&expr->sign_span);
             printf("\n");
-            Expr_display(expr->as.binary.lhs, depth + 1);
-            Expr_display(expr->as.binary.rhs, depth + 1);
+            Expr_display(expr->as.binary.lhs, interner, depth + 1);
+            Expr_display(expr->as.binary.rhs, interner, depth + 1);
             break;
     }
 }

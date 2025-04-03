@@ -5,6 +5,7 @@
 
 #include "token.h"
 #include "span.h"
+#include "interner.h"
 
 #define LEXER_ITERATE(result, lexer) \
     for (LexResult result = Lexer_next(&(lexer)); result.kind != LEX_RESULT_DONE; result = Lexer_next(&(lexer)))
@@ -14,6 +15,7 @@ typedef struct {
     size_t cursor;
     size_t row;
     size_t column;
+    Interner *interner;
 } Lexer;
 
 typedef enum {
@@ -42,7 +44,7 @@ typedef struct {
     LexResultData as;
 } LexResult;
 
-Lexer Lexer_new(char *source);
+Lexer Lexer_new(char *source, Interner *interner);
 LexResult Lexer_next(Lexer *lexer);
 LexResult Lexer_integer(Lexer *lexer);
 LexResult Lexer_identifier(Lexer *lexer);

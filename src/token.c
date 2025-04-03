@@ -3,6 +3,7 @@
 
 #include "token.h"
 #include "span.h"
+#include "interner.h"
 
 Token Token_kind(TokenKind kind, Span span) {
     return (Token) {
@@ -19,34 +20,21 @@ Token Token_integer(size_t integer, Span span) {
     };
 }
 
-Token Token_identifier(char *lexeme, Span span) {
+Token Token_identifier(InternId lexeme_id, Span span) {
     return (Token) {
         .kind = IDENTIFIER,
-        .as.lexeme = lexeme,
+        .as.lexeme_id = lexeme_id,
         .span = span
     };
 }
 
-void Token_free(Token *token) {
-    switch (token->kind) {
-        case IDENTIFIER:
-            free(token->as.lexeme);
-        case INTEGER:
-        case LEFT_PAREN:
-        case RIGHT_PAREN:
-        case PLUS:
-        case STAR:
-            break;
-    }
-}
-
-void Token_display(Token *token) {
+void Token_display(Token *token, Interner *interner) {
     switch (token->kind) {
         case INTEGER:
             printf("%ld", token->as.integer);
             break;
         case IDENTIFIER:
-            printf("%s", token->as.lexeme);
+            printf("%s", Interner_get(interner, token->as.lexeme_id));
             break;
         case LEFT_PAREN:
             printf("(");

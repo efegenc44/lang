@@ -5,6 +5,7 @@
 
 #include "token.h"
 #include "span.h"
+#include "interner.h"
 
 typedef struct Expr Expr;
 
@@ -33,7 +34,7 @@ typedef enum {
 
 typedef union {
     size_t integer;
-    char *identifier;
+    InternId identifier_id;
     Binary binary;
 } ExprData;
 
@@ -49,9 +50,9 @@ extern const Assoc AssocTable[2];
 BOp bop_from_token_kind(TokenKind kind);
 
 Expr Expr_integer(size_t integer, Span span);
-Expr Expr_identifier(char *identifier, Span span);
+Expr Expr_identifier(InternId identifier_id, Span span);
 Expr Expr_binary(Expr lhs, BOp bop, Expr rhs, Span span);
-void Expr_display(Expr *expr, size_t depth);
+void Expr_display(Expr *expr, Interner *interner, size_t depth);
 Expr *Expr_box(Expr expr);
 
 #endif // EXPR_H

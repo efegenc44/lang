@@ -51,7 +51,7 @@ ParseResult Parser_primary(Parser *parser) {
             Expr expr_int = Expr_integer(token.as.integer, token.span);
             return ParseResult_success_expr(expr_int);
         case EXPR_IDENTIFIER:
-            Expr expr_ident = Expr_identifier(token.as.lexeme, token.span);
+            Expr expr_ident = Expr_identifier(token.as.lexeme_id, token.span);
             return ParseResult_success_expr(expr_ident);
         case LEFT_PAREN:
             return Parser_finish_paren(parser);
@@ -109,7 +109,7 @@ ParseError ParseError_lex_error(LexError error) {
     };
 }
 
-void ParseError_display(ParseError *error, char *source, char *source_name) {
+void ParseError_display(ParseError *error, Interner *interner, char *source, char *source_name) {
     if (error->kind == LEX_ERROR) {
         return LexError_display(&error->as.lex_error, source, source_name);
     }
@@ -120,7 +120,7 @@ void ParseError_display(ParseError *error, char *source, char *source_name) {
     switch (error->kind) {
         case UNEXPECTED_TOKEN:
             printf("Unexpected token : '");
-            Token_display(&error->as.token);
+            Token_display(&error->as.token, interner);
             printf("'");
             break;
         case UNEXPECTED_EOF:
