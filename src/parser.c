@@ -121,6 +121,7 @@ void ParseError_display(ParseError *error, char *source, char *source_name) {
         case UNEXPECTED_TOKEN:
             printf("Unexpected token : '");
             Token_display(&error->as.token);
+            printf("'");
             break;
         case UNEXPECTED_EOF:
             printf("Unexpected end of line\n");

@@ -61,6 +61,4 @@ void Token_display(Token *token) {
             printf("*");
             break;
     }
-
-    printf(" : %ld:%ld-%ld", token->span.line, token->span.start, token->span.end);
 }
