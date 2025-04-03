@@ -4,12 +4,13 @@
 
 #include "parser.h"
 
-Parser Parser_new(Lexer lexer) {
+Parser Parser_new(Lexer lexer, ExprArray *expr_array) {
     LexResult peek = Lexer_next(&lexer);
 
     return (Parser) {
         .lexer = lexer,
-        .peek = peek
+        .peek = peek,
+        .expr_array = expr_array
     };
 }
 
@@ -33,7 +34,7 @@ ParseResult Parser_binary(Parser *parser, size_t min_prec) {
                 Parser_advance_token(parser);
                 size_t prec = PrecTable[bop] + (AssocTable[bop] != ASSOC_RIGHT);
                 BINDParse(rhs, Parser_binary(parser, prec));
-                lhs = Expr_binary(lhs, bop, rhs, token.span);
+                lhs = ExprArray_append(parser->expr_array, Expr_binary(lhs, bop, rhs, token.span));
                 if (AssocTable[bop] == ASSOC_NONE) goto end;
                 break;
             default:
@@ -41,7 +42,7 @@ ParseResult Parser_binary(Parser *parser, size_t min_prec) {
         }
     }
 end:
-    return ParseResult_success_expr(lhs);
+    return ParseResult_success_expr_index(lhs);
 }
 
 ParseResult Parser_primary(Parser *parser) {
@@ -49,10 +50,14 @@ ParseResult Parser_primary(Parser *parser) {
     switch (token.kind) {
         case EXPR_INTEGER:
             Expr expr_int = Expr_integer(token.as.integer, token.span);
-            return ParseResult_success_expr(expr_int);
+            return ParseResult_success_expr_index(
+                ExprArray_append(parser->expr_array, expr_int)
+            );
         case EXPR_IDENTIFIER:
             Expr expr_ident = Expr_identifier(token.as.lexeme_id, token.span);
-            return ParseResult_success_expr(expr_ident);
+            return ParseResult_success_expr_index(
+                ExprArray_append(parser->expr_array, expr_ident)
+            );
         case LEFT_PAREN:
             return Parser_finish_paren(parser);
         default:
@@ -65,7 +70,7 @@ ParseResult Parser_finish_paren(Parser *parser) {
     BINDParse(expr, Parser_expr(parser));
     DOParse(Parser_expect_kind(parser, RIGHT_PAREN));
 
-    return ParseResult_success_expr(expr);
+    return ParseResult_success_expr_index(expr);
 }
 
 LexResult Parser_advance_token(Parser *parser) {
@@ -135,10 +140,10 @@ void ParseError_display(ParseError *error, Interner *interner, char *source, cha
     printf("\n");
 }
 
-ParseResult ParseResult_success_expr(Expr expr) {
+ParseResult ParseResult_success_expr_index(ExprIndex expr_index) {
     return (ParseResult) {
         .kind = PARSE_RESULT_SUCCESS,
-        .as.expr = expr
+        .as.expr_index = expr_index
     };
 }
 

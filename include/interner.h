@@ -18,6 +18,5 @@ Interner Interner_new();
 void Interner_free(Interner *interner);
 InternId Interner_register(Interner *interner, char *string);
 char *Interner_get(Interner *interner, InternId id);
-void Interner_display(Interner *interner);
 
 #endif // INTERNER_H

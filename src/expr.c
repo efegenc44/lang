@@ -39,20 +39,19 @@ Expr Expr_identifier(InternId identifier_id, Span span) {
     };
 }
 
-Expr Expr_binary(Expr lhs, BOp bop, Expr rhs, Span span) {
+Expr Expr_binary(ExprIndex lhs, BOp bop, ExprIndex rhs, Span span) {
     return (Expr) {
         .kind = EXPR_BINARY,
-        // TODO: Memory management
         .as.binary = {
-            .lhs = Expr_box(lhs),
+            .lhs = lhs,
             .bop = bop,
-            .rhs = Expr_box(rhs)
+            .rhs = rhs
         },
         .sign_span = span
     };
 }
 
-void Expr_display(Expr *expr, Interner *interner, size_t depth) {
+void Expr_display(Expr *expr, ExprArray *expr_array, Interner *interner, size_t depth) {
     for (size_t i = 0; i < depth*2; i++) printf(" ");
     switch (expr->kind) {
         case EXPR_INTEGER:
@@ -79,8 +78,10 @@ void Expr_display(Expr *expr, Interner *interner, size_t depth) {
             printf(" | ");
             Span_display_start(&expr->sign_span);
             printf("\n");
-            Expr_display(expr->as.binary.lhs, interner, depth + 1);
-            Expr_display(expr->as.binary.rhs, interner, depth + 1);
+            Expr lhs = ExprArray_get(expr_array, expr->as.binary.lhs);
+            Expr rhs = ExprArray_get(expr_array, expr->as.binary.rhs);
+            Expr_display(&lhs, expr_array, interner, depth + 1);
+            Expr_display(&rhs, expr_array, interner, depth + 1);
             break;
     }
 }
@@ -90,4 +91,30 @@ Expr *Expr_box(Expr expr) {
     *ptr = expr;
 
     return ptr;
+}
+
+ExprArray ExprArray_new() {
+    return (ExprArray) {
+        .exprs = malloc(EXPR_ARRAY_DEFAULT_CAPACITY*sizeof(Expr)),
+        .capacity = EXPR_ARRAY_DEFAULT_CAPACITY,
+        .length = 0
+    };
+}
+
+void ExprArray_free(ExprArray *expr_array) {
+    free(expr_array);
+}
+
+ExprIndex ExprArray_append(ExprArray *expr_array, Expr expr) {
+    if (expr_array->capacity == expr_array->length) {
+        expr_array->capacity *= 2;
+        expr_array->exprs = realloc(expr_array->exprs, expr_array->capacity*sizeof(Expr));
+    }
+    expr_array->exprs[expr_array->length] = expr;
+
+    return expr_array->length++;
+}
+
+Expr ExprArray_get(ExprArray *expr_array, ExprIndex index) {
+    return expr_array->exprs[index];
 }

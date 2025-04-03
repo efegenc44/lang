@@ -4,17 +4,17 @@
 #include "lexer.h"
 #include "expr.h"
 
-#define CHECK_LEX_ERROR(result)                                        \
-    if ((result).kind == LEX_RESULT_ERROR) {                                      \
+#define CHECK_LEX_ERROR(result)                                   \
+    if ((result).kind == LEX_RESULT_ERROR) {                      \
         ParseError error = ParseError_lex_error(result.as.error); \
         return ParseResult_error(error);                          \
-    }                                                                  \
+    }                                                             \
 
-#define CHECK_LEX_DONE(result)                     \
-    if ((result).kind == LEX_RESULT_DONE) {                   \
+#define CHECK_LEX_DONE(result)                \
+    if ((result).kind == LEX_RESULT_DONE) {   \
         ParseError error = ParseError_ueof(); \
         return ParseResult_error(error);      \
-    }                                              \
+    }                                         \
 
 #define BINDLex(name, expr)               \
     LexResult name##_result = (expr);     \
@@ -29,10 +29,10 @@
         case PARSE_RESULT_SUCCESS: \
     }                              \
 
-#define BINDParse(name, parse_expr)           \
-    ParseResult name##_result = (parse_expr); \
-    CHECK_PARSE_ERROR(name##_result);         \
-    Expr name = (name##_result).as.expr;      \
+#define BINDParse(name, expr)                       \
+    ParseResult name##_result = (expr);             \
+    CHECK_PARSE_ERROR(name##_result);               \
+    ExprIndex name = (name##_result).as.expr_index; \
 
 #define DOParse(expr)                \
     {                                \
@@ -43,6 +43,7 @@
 typedef struct {
     Lexer lexer;
     LexResult peek;
+    ExprArray *expr_array;
 } Parser;
 
 typedef enum {
@@ -67,7 +68,7 @@ typedef enum {
 } ParseResultKind;
 
 typedef union {
-    Expr expr;
+    ExprIndex expr_index;
     Token token; // unnecessary?
     ParseError error;
 } ParseResultData;
@@ -77,7 +78,7 @@ typedef struct {
     ParseResultData as;
 } ParseResult;
 
-Parser Parser_new(Lexer lexer);
+Parser Parser_new(Lexer lexer, ExprArray *expr_array);
 ParseResult Parser_expr(Parser *parser);
 ParseResult Parser_binary(Parser *parser, size_t min_prec);
 ParseResult Parser_primary(Parser *parser);
@@ -91,7 +92,7 @@ ParseError ParseError_ueof();
 ParseError ParseError_lex_error(LexError error);
 void ParseError_display(ParseError *error, Interner *interner, char *source, char *source_name);
 
-ParseResult ParseResult_success_expr(Expr expr);
+ParseResult ParseResult_success_expr_index(ExprIndex expr_index);
 ParseResult ParseResult_success_token(Token token);
 ParseResult ParseResult_error(ParseError error);
 

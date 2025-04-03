@@ -22,8 +22,9 @@ void repl() {
         }
 
         Interner interner = Interner_new();
+        ExprArray expr_array = ExprArray_new();
         Lexer lexer = Lexer_new(input, &interner);
-        Parser parser = Parser_new(lexer);
+        Parser parser = Parser_new(lexer, &expr_array);
 
         ParseResult result = Parser_expr(&parser);
         switch (result.kind) {
@@ -32,12 +33,13 @@ void repl() {
                 ParseError_display(&parse_error, &interner, input, "REPL");
                 break;
             case PARSE_RESULT_SUCCESS:
-                Expr e = result.as.expr;
-                Expr_display(&e, &interner, 0);
+                Expr expr = ExprArray_get(&expr_array, result.as.expr_index);
+                Expr_display(&expr, &expr_array, &interner, 0);
                 break;
         }
         printf("\n");
 
+        ExprArray_free(&expr_array);
         Interner_free(&interner);
     }
 }
