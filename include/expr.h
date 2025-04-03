@@ -48,10 +48,10 @@ extern const Assoc AssocTable[2];
 
 BOp bop_from_token_kind(TokenKind kind);
 
-Expr expr_new_integer(size_t integer, Span span);
-Expr expr_new_identifier(char *identifier, Span span);
-Expr expr_new_binary(Expr lhs, BOp bop, Expr rhs, Span span);
-void expr_display(Expr *expr, size_t depth);
-Expr *expr_box(Expr expr);
+Expr Expr_integer(size_t integer, Span span);
+Expr Expr_identifier(char *identifier, Span span);
+Expr Expr_binary(Expr lhs, BOp bop, Expr rhs, Span span);
+void Expr_display(Expr *expr, size_t depth);
+Expr *Expr_box(Expr expr);
 
 #endif // EXPR_H

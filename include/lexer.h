@@ -7,7 +7,7 @@
 #include "span.h"
 
 #define LEXER_ITERATE(result, lexer) \
-    for (LexResult result = lexer_next(&(lexer)); result.kind != DONE; result = lexer_next(&(lexer)))
+    for (LexResult result = Lexer_next(&(lexer)); result.kind != LEX_RESULT_DONE; result = Lexer_next(&(lexer)))
 
 typedef struct {
     char *source;
@@ -16,39 +16,45 @@ typedef struct {
     size_t column;
 } Lexer;
 
+typedef enum {
+    LEX_ERROR_UNKNOWN_TOKEN_START
+} LexErrorKind;
+
 typedef struct {
-    enum {
-        UNKNOWN_TOKEN_START
-    } kind;
+    LexErrorKind kind;
     char data;
     Span span;
 } LexError;
 
+typedef enum {
+    LEX_RESULT_SUCCESS,
+    LEX_RESULT_DONE,
+    LEX_RESULT_ERROR
+} LexResultKind;
+
+typedef union {
+    Token token;
+    LexError error;
+} LexResultData;
+
 typedef struct {
-    enum {
-        SUCCESS,
-        DONE,
-        ERROR
-    } kind;
-    union {
-        Token token;
-        LexError error;
-    } as;
+    LexResultKind kind;
+    LexResultData as;
 } LexResult;
 
-Lexer lexer_new(char *source);
-LexResult lexer_next(Lexer *lexer);
-LexResult lexer_integer(Lexer *lexer);
-LexResult lexer_identifier(Lexer *lexer);
-char lexer_advance(Lexer *lexer);
-char lexer_peek(Lexer *lexer);
-Span lexer_span(Lexer *lexer, size_t start);
+Lexer Lexer_new(char *source);
+LexResult Lexer_next(Lexer *lexer);
+LexResult Lexer_integer(Lexer *lexer);
+LexResult Lexer_identifier(Lexer *lexer);
+char Lexer_advance(Lexer *lexer);
+char Lexer_peek(Lexer *lexer);
+Span Lexer_span(Lexer *lexer, size_t start);
 
-LexError lex_error_new_uts(char ch, Span span);
-void lex_error_display(LexError *error, char *source, char *source_name);
+LexError LexError_uts(char ch, Span span);
+void LexError_display(LexError *error, char *source, char *source_name);
 
-LexResult lex_result_new_success(Token token);
-LexResult lex_result_new_done();
-LexResult lex_result_new_error(LexError error);
+LexResult LexResult_success(Token token);
+LexResult LexResult_done();
+LexResult LexResult_error(LexError error);
 
 #endif // LEXER_H

@@ -23,7 +23,7 @@ BOp bop_from_token_kind(TokenKind kind) {
     }
 }
 
-Expr expr_new_integer(size_t integer, Span span) {
+Expr Expr_integer(size_t integer, Span span) {
     return (Expr) {
         .kind = EXPR_INTEGER,
         .as.integer = integer,
@@ -31,7 +31,7 @@ Expr expr_new_integer(size_t integer, Span span) {
     };
 }
 
-Expr expr_new_identifier(char *identifier, Span span) {
+Expr Expr_identifier(char *identifier, Span span) {
     return (Expr) {
         .kind = EXPR_IDENTIFIER,
         .as.identifier = identifier,
@@ -39,32 +39,32 @@ Expr expr_new_identifier(char *identifier, Span span) {
     };
 }
 
-Expr expr_new_binary(Expr lhs, BOp bop, Expr rhs, Span span) {
+Expr Expr_binary(Expr lhs, BOp bop, Expr rhs, Span span) {
     return (Expr) {
         .kind = EXPR_BINARY,
         // TODO: Memory management
         .as.binary = {
-            .lhs = expr_box(lhs),
+            .lhs = Expr_box(lhs),
             .bop = bop,
-            .rhs = expr_box(rhs)
+            .rhs = Expr_box(rhs)
         },
         .sign_span = span
     };
 }
 
-void expr_display(Expr *expr, size_t depth) {
+void Expr_display(Expr *expr, size_t depth) {
     for (size_t i = 0; i < depth*2; i++) printf(" ");
     switch (expr->kind) {
         case EXPR_INTEGER:
             printf("%ld", expr->as.integer);
             printf(" | ");
-            span_display_start(&expr->sign_span);
+            Span_display_start(&expr->sign_span);
             printf("\n");
             break;
         case EXPR_IDENTIFIER:
             printf("%s", expr->as.identifier);
             printf(" | ");
-            span_display_start(&expr->sign_span);
+            Span_display_start(&expr->sign_span);
             printf("\n");
             break;
         case EXPR_BINARY:
@@ -77,15 +77,15 @@ void expr_display(Expr *expr, size_t depth) {
                     break;
             }
             printf(" | ");
-            span_display_start(&expr->sign_span);
+            Span_display_start(&expr->sign_span);
             printf("\n");
-            expr_display(expr->as.binary.lhs, depth + 1);
-            expr_display(expr->as.binary.rhs, depth + 1);
+            Expr_display(expr->as.binary.lhs, depth + 1);
+            Expr_display(expr->as.binary.rhs, depth + 1);
             break;
     }
 }
 
-Expr *expr_box(Expr expr) {
+Expr *Expr_box(Expr expr) {
     Expr *ptr = malloc(sizeof(Expr));
     *ptr = expr;
 

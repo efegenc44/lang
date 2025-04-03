@@ -4,14 +4,14 @@
 #include "token.h"
 #include "span.h"
 
-Token token_new_kind(TokenKind kind, Span span) {
+Token Token_kind(TokenKind kind, Span span) {
     return (Token) {
         .kind = kind,
         .span = span
     };
 }
 
-Token token_new_integer(size_t integer, Span span) {
+Token Token_integer(size_t integer, Span span) {
     return (Token) {
         .kind = INTEGER,
         .as.integer = integer,
@@ -19,7 +19,7 @@ Token token_new_integer(size_t integer, Span span) {
     };
 }
 
-Token token_new_identifier(char *lexeme, Span span) {
+Token Token_identifier(char *lexeme, Span span) {
     return (Token) {
         .kind = IDENTIFIER,
         .as.lexeme = lexeme,
@@ -27,7 +27,7 @@ Token token_new_identifier(char *lexeme, Span span) {
     };
 }
 
-void token_free(Token *token) {
+void Token_free(Token *token) {
     switch (token->kind) {
         case IDENTIFIER:
             free(token->as.lexeme);
@@ -40,7 +40,7 @@ void token_free(Token *token) {
     }
 }
 
-void token_display(Token *token) {
+void Token_display(Token *token) {
     switch (token->kind) {
         case INTEGER:
             printf("%ld", token->as.integer);

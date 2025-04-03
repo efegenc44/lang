@@ -3,7 +3,7 @@
 
 #include "span.h"
 
-Span span_new(size_t line, size_t start, size_t end) {
+Span Span_new(size_t line, size_t start, size_t end) {
     return (Span) {
         .line = line,
         .start = start,
@@ -11,16 +11,16 @@ Span span_new(size_t line, size_t start, size_t end) {
     };
 }
 
-void span_display_start(Span *span) {
+void Span_display_start(Span *span) {
     printf("%ld:%ld", span->line, span->start);
 }
 
-void span_display_location(Span *span, char *source_name) {
+void Span_display_location(Span *span, char *source_name) {
     printf("%s:", source_name);
-    span_display_start(span);
+    Span_display_start(span);
 }
 
-void span_display_in_source(Span *span, char *source) {
+void Span_display_in_source(Span *span, char *source) {
     size_t cursor = 0;
     for (size_t row = 1; row < span->line; row++) {
         while (source[cursor] != '\n') cursor++;

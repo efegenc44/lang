@@ -25,10 +25,10 @@ typedef struct {
     Span span;
 } Token;
 
-Token token_new_kind(TokenKind kind, Span span);
-Token token_new_integer(size_t integer, Span span);
-Token token_new_identifier(char *lexeme, Span span);
-void token_free(Token *token);
-void token_display(Token *token);
+Token Token_kind(TokenKind kind, Span span);
+Token Token_integer(size_t integer, Span span);
+Token Token_identifier(char *lexeme, Span span);
+void Token_free(Token *token);
+void Token_display(Token *token);
 
 #endif // TOKEN_H

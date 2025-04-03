@@ -21,18 +21,18 @@ void repl() {
             continue;
         }
 
-        Lexer lexer = lexer_new(input);
-        Parser parser = parser_new(lexer);
+        Lexer lexer = Lexer_new(input);
+        Parser parser = Parser_new(lexer);
 
-        ParseResult result = parser_expr(&parser);
+        ParseResult result = Parser_expr(&parser);
         switch (result.kind) {
             case PARSE_RESULT_ERROR:
                 ParseError parse_error = result.as.error;
-                parse_error_display(&parse_error, input, "REPL");
+                ParseError_display(&parse_error, input, "REPL");
                 break;
             case PARSE_RESULT_SUCCESS:
                 Expr e = result.as.expr;
-                expr_display(&e, 0);
+                Expr_display(&e, 0);
                 break;
         }
         printf("\n");

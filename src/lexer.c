@@ -6,7 +6,7 @@
 #include "lexer.h"
 #include "token.h"
 
-Lexer lexer_new(char *source) {
+Lexer Lexer_new(char *source) {
     return (Lexer) {
         .source = source,
         .cursor = 0,
@@ -15,27 +15,27 @@ Lexer lexer_new(char *source) {
     };
 }
 
-LexResult lexer_next(Lexer *lexer) {
-    while (isspace(lexer_peek(lexer))) {
-        lexer_advance(lexer);
+LexResult Lexer_next(Lexer *lexer) {
+    while (isspace(Lexer_peek(lexer))) {
+        Lexer_advance(lexer);
     }
-    char current_char = lexer_peek(lexer);
+    char current_char = Lexer_peek(lexer);
 
     if (current_char == '\0') {
-        return lex_result_new_done();
+        return LexResult_done();
     }
 
     if (isdigit(current_char)) {
-        return lexer_integer(lexer);
+        return Lexer_integer(lexer);
     }
 
     if (isalpha(current_char)) {
-        return lexer_identifier(lexer);
+        return Lexer_identifier(lexer);
     }
 
     size_t start = lexer->column;
     TokenKind kind;
-    switch (lexer_advance(lexer)) {
+    switch (Lexer_advance(lexer)) {
         case '(':
             kind = LEFT_PAREN;
             break;
@@ -49,45 +49,45 @@ LexResult lexer_next(Lexer *lexer) {
             kind = STAR;
             break;
         default:
-            Span span = lexer_span(lexer, start);
-            LexError error = lex_error_new_uts(current_char, span);
-            return lex_result_new_error(error);
+            Span span = Lexer_span(lexer, start);
+            LexError error = LexError_uts(current_char, span);
+            return LexResult_error(error);
     }
 
-    Span span = lexer_span(lexer, start);
-    Token token = token_new_kind(kind, span);
-    return lex_result_new_success(token);
+    Span span = Lexer_span(lexer, start);
+    Token token = Token_kind(kind, span);
+    return LexResult_success(token);
 }
 
-LexResult lexer_integer(Lexer *lexer) {
+LexResult Lexer_integer(Lexer *lexer) {
     size_t start = lexer->column;
 
-    size_t integer = lexer_advance(lexer) - '0';
-    while (isdigit(lexer_peek(lexer))) {
-        integer = 10*integer + (lexer_advance(lexer) - '0');
+    size_t integer = Lexer_advance(lexer) - '0';
+    while (isdigit(Lexer_peek(lexer))) {
+        integer = 10*integer + (Lexer_advance(lexer) - '0');
     }
 
-    Span span = lexer_span(lexer, start);
-    Token token = token_new_integer(integer, span);
-    return lex_result_new_success(token);
+    Span span = Lexer_span(lexer, start);
+    Token token = Token_integer(integer, span);
+    return LexResult_success(token);
 }
 
-LexResult lexer_identifier(Lexer *lexer) {
+LexResult Lexer_identifier(Lexer *lexer) {
     size_t start = lexer->column;
     size_t start_index = lexer->cursor;
-    while (isalnum(lexer_peek(lexer))) {
-        lexer_advance(lexer);
+    while (isalnum(Lexer_peek(lexer))) {
+        Lexer_advance(lexer);
     }
     size_t length = lexer->cursor - start_index;
     char *lexeme = strndup(&lexer->source[start_index], length);
 
-    Span span = lexer_span(lexer, start);
-    Token token = token_new_identifier(lexeme, span);
-    return lex_result_new_success(token);
+    Span span = Lexer_span(lexer, start);
+    Token token = Token_identifier(lexeme, span);
+    return LexResult_success(token);
 }
 
-char lexer_advance(Lexer *lexer) {
-    char current = lexer_peek(lexer);
+char Lexer_advance(Lexer *lexer) {
+    char current = Lexer_peek(lexer);
     if (current == '\n') {
         lexer->row += 1;
         lexer->column = 1;
@@ -99,11 +99,11 @@ char lexer_advance(Lexer *lexer) {
     return current;
 }
 
-char lexer_peek(Lexer *lexer) {
+char Lexer_peek(Lexer *lexer) {
     return lexer->source[lexer->cursor];
 }
 
-Span lexer_span(Lexer *lexer, size_t start) {
+Span Lexer_span(Lexer *lexer, size_t start) {
     return (Span) {
         .line = lexer->row,
         .start = start,
@@ -111,45 +111,45 @@ Span lexer_span(Lexer *lexer, size_t start) {
     };
 }
 
-LexError lex_error_new_uts(char ch, Span span) {
+LexError LexError_uts(char ch, Span span) {
     return (LexError) {
-        .kind = UNKNOWN_TOKEN_START,
+        .kind = LEX_ERROR_UNKNOWN_TOKEN_START,
         .data = ch,
         .span = span
     };
 }
 
-void lex_error_display(LexError *error, char *source, char *source_name) {
-    span_display_location(&error->span, source_name);
+void LexError_display(LexError *error, char *source, char *source_name) {
+    Span_display_location(&error->span, source_name);
     printf(": error: ");
 
     switch (error->kind) {
-        case UNKNOWN_TOKEN_START:
+        case LEX_ERROR_UNKNOWN_TOKEN_START:
             printf("Unknown start of a token : '%c'", error->data);
             break;
     }
 
     printf(" (at tokenizing)\n");
-    span_display_in_source(&error->span, source);
+    Span_display_in_source(&error->span, source);
     printf("\n");
 }
 
-LexResult lex_result_new_success(Token token) {
+LexResult LexResult_success(Token token) {
     return (LexResult) {
-        .kind = SUCCESS,
+        .kind = LEX_RESULT_SUCCESS,
         .as.token = token
     };
 }
 
-LexResult lex_result_new_done() {
+LexResult LexResult_done() {
     return (LexResult) {
-        .kind = DONE,
+        .kind = LEX_RESULT_DONE,
     };
 }
 
-LexResult lex_result_new_error(LexError error) {
+LexResult LexResult_error(LexError error) {
     return (LexResult) {
-        .kind = ERROR,
+        .kind = LEX_RESULT_ERROR,
         .as.error = error
     };
 }
