@@ -102,7 +102,7 @@ ExprArray ExprArray_new() {
 }
 
 void ExprArray_free(ExprArray *expr_array) {
-    free(expr_array);
+    free(expr_array->exprs);
 }
 
 ExprIndex ExprArray_append(ExprArray *expr_array, Expr expr) {

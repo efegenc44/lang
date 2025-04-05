@@ -7,6 +7,29 @@
 #include "token.h"
 #include "parser.h"
 
+void do_stuff(char *input) {
+    Interner interner = Interner_new();
+    ExprArray expr_array = ExprArray_new();
+    Lexer lexer = Lexer_new(input, &interner);
+    Parser parser = Parser_new(lexer, &expr_array);
+
+    ParseResult result = Parser_expr(&parser);
+    switch (result.kind) {
+        case PARSE_RESULT_ERROR:
+            ParseError parse_error = result.as.error;
+            ParseError_display(&parse_error, &interner, input, "REPL");
+            break;
+        case PARSE_RESULT_SUCCESS:
+            Expr expr = ExprArray_get(&expr_array, result.as.expr_index);
+            Expr_display(&expr, &expr_array, &interner, 0);
+            break;
+    }
+    printf("\n");
+
+    ExprArray_free(&expr_array);
+    Interner_free(&interner);
+}
+
 void repl() {
     while (true) {
         printf(">> ");
@@ -21,27 +44,22 @@ void repl() {
             continue;
         }
 
-        Interner interner = Interner_new();
-        ExprArray expr_array = ExprArray_new();
-        Lexer lexer = Lexer_new(input, &interner);
-        Parser parser = Parser_new(lexer, &expr_array);
-
-        ParseResult result = Parser_expr(&parser);
-        switch (result.kind) {
-            case PARSE_RESULT_ERROR:
-                ParseError parse_error = result.as.error;
-                ParseError_display(&parse_error, &interner, input, "REPL");
-                break;
-            case PARSE_RESULT_SUCCESS:
-                Expr expr = ExprArray_get(&expr_array, result.as.expr_index);
-                Expr_display(&expr, &expr_array, &interner, 0);
-                break;
-        }
-        printf("\n");
-
-        ExprArray_free(&expr_array);
-        Interner_free(&interner);
+        do_stuff(input);
     }
+}
+
+void from_file(int argc, char *argv[]) {
+    FILE *file = fopen(argv[0], "r");
+    assert(file != NULL);
+    fseek(file, 0, SEEK_END);
+    size_t length = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    char content[length + 1];
+    assert(length == fread(content, sizeof(char), length, file));
+    content[length] = '\0';
+
+    do_stuff(content);
 }
 
 int main(int argc, char *argv[]) {
@@ -50,6 +68,6 @@ int main(int argc, char *argv[]) {
             repl();
             break;
         default:
-            printf("Not implemented");
+            from_file(--argc, ++argv);
     }
 }
