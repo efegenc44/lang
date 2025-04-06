@@ -12,7 +12,10 @@ typedef enum {
     LEFT_PAREN,
     RIGHT_PAREN,
     PLUS,
-    STAR
+    STAR,
+    EQUALS,
+    LET_KEYWORD,
+    IN_KEYWORD,
 } TokenKind;
 
 typedef union {

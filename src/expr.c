@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "expr.h"
+#include "resolver.h"
 
 const size_t PrecTable[2] = {
     [BOP_ADD] = 1,
@@ -34,7 +35,10 @@ Expr Expr_integer(size_t integer, Span span) {
 Expr Expr_identifier(InternId identifier_id, Span span) {
     return (Expr) {
         .kind = EXPR_IDENTIFIER,
-        .as.identifier_id = identifier_id,
+        .as.identifier = {
+            .bound = Bound_undetermined(),
+            .identifier_id = identifier_id,
+        },
         .sign_span = span
     };
 }
@@ -51,6 +55,18 @@ Expr Expr_binary(ExprIndex lhs, BOp bop, ExprIndex rhs, Span span) {
     };
 }
 
+Expr Expr_let(InternId variable, ExprIndex vexpr, ExprIndex rexpr, Span span) {
+    return (Expr) {
+        .kind = EXPR_LET,
+        .as.let = {
+            .variable = variable,
+            .vexpr = vexpr,
+            .rexpr = rexpr,
+        },
+        .sign_span = span
+    };
+}
+
 void Expr_display(Expr *expr, ExprArray *expr_array, Interner *interner, size_t depth) {
     for (size_t i = 0; i < depth*2; i++) printf(" ");
     switch (expr->kind) {
@@ -61,7 +77,9 @@ void Expr_display(Expr *expr, ExprArray *expr_array, Interner *interner, size_t 
             printf("\n");
             break;
         case EXPR_IDENTIFIER:
-            printf("%s", Interner_get(interner, expr->as.identifier_id));
+            Identifier ident = expr->as.identifier;
+            printf("%s ", Interner_get(interner, ident.identifier_id));
+            Bound_display(&ident.bound);
             printf(" | ");
             Span_display_start(&expr->sign_span);
             printf("\n");
@@ -82,6 +100,17 @@ void Expr_display(Expr *expr, ExprArray *expr_array, Interner *interner, size_t 
             Expr rhs = ExprArray_get(expr_array, expr->as.binary.rhs);
             Expr_display(&lhs, expr_array, interner, depth + 1);
             Expr_display(&rhs, expr_array, interner, depth + 1);
+            break;
+        case EXPR_LET:
+            printf("let %s", Interner_get(interner, expr->as.let.variable));
+            printf(" | ");
+            Span_display_start(&expr->sign_span);
+            printf("\n");
+            Expr vexpr = ExprArray_get(expr_array, expr->as.let.vexpr);
+            Expr rexpr = ExprArray_get(expr_array, expr->as.let.rexpr);
+            Expr_display(&vexpr, expr_array, interner, depth + 1);
+            printf("\n");
+            Expr_display(&rexpr, expr_array, interner, depth + 1);
             break;
     }
 }

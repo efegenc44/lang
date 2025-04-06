@@ -15,6 +15,7 @@ Parser Parser_new(Lexer lexer, ExprArray *expr_array) {
 }
 
 ParseResult Parser_expr(Parser *parser) {
+    // TODO: Check if exhausted all tokens
     return Parser_binary(parser, 0);
 }
 
@@ -60,6 +61,8 @@ ParseResult Parser_primary(Parser *parser) {
             );
         case LEFT_PAREN:
             return Parser_finish_paren(parser);
+        case LET_KEYWORD:
+            return Parser_finish_let(parser);
         default:
             ParseError error = ParseError_ut(token);
             return ParseResult_error(error);
@@ -71,6 +74,18 @@ ParseResult Parser_finish_paren(Parser *parser) {
     DOParse(Parser_expect_kind(parser, RIGHT_PAREN));
 
     return ParseResult_success_expr_index(expr);
+}
+
+ParseResult Parser_finish_let(Parser *parser) {
+    BINDParseT(variable, Parser_expect_kind(parser, IDENTIFIER));
+    DOParse(Parser_expect_kind(parser, EQUALS));
+    BINDParse(vexpr, Parser_expr(parser));
+    DOParse(Parser_expect_kind(parser, IN_KEYWORD));
+    BINDParse(rexpr, Parser_expr(parser));
+    Expr let = Expr_let(variable.as.lexeme_id, vexpr, rexpr, variable.span);
+    ExprIndex index = ExprArray_append(parser->expr_array, let);
+
+    return ParseResult_success_expr_index(index);
 }
 
 LexResult Parser_advance_token(Parser *parser) {

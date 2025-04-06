@@ -48,5 +48,14 @@ void Token_display(Token *token, Interner *interner) {
         case STAR:
             printf("*");
             break;
+        case EQUALS:
+            printf("=");
+            break;
+        case LET_KEYWORD:
+            printf("let");
+            break;
+        case IN_KEYWORD:
+            printf("in");
+            break;
     }
 }

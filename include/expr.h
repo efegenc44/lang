@@ -6,9 +6,14 @@
 #include "token.h"
 #include "span.h"
 #include "interner.h"
+#include "bound.h"
 
-typedef struct Expr Expr;
 typedef size_t ExprIndex;
+
+typedef struct {
+    Bound bound;
+    InternId identifier_id;
+} Identifier;
 
 typedef enum {
     BOP_ADD,
@@ -27,23 +32,31 @@ typedef struct {
     ExprIndex rhs;
 } Binary;
 
+typedef struct {
+    InternId variable;
+    ExprIndex vexpr;
+    ExprIndex rexpr;
+} Let;
+
 typedef enum {
     EXPR_INTEGER,
     EXPR_IDENTIFIER,
-    EXPR_BINARY
+    EXPR_BINARY,
+    EXPR_LET,
 } ExprKind;
 
 typedef union {
     size_t integer;
-    InternId identifier_id;
+    Identifier identifier;
     Binary binary;
+    Let let;
 } ExprData;
 
-struct Expr {
+typedef struct {
     ExprKind kind;
     ExprData as;
     Span sign_span;
-};
+} Expr;
 
 #define EXPR_ARRAY_DEFAULT_CAPACITY 256
 
@@ -61,6 +74,7 @@ BOp bop_from_token_kind(TokenKind kind);
 Expr Expr_integer(size_t integer, Span span);
 Expr Expr_identifier(InternId identifier_id, Span span);
 Expr Expr_binary(ExprIndex lhs, BOp bop, ExprIndex rhs, Span span);
+Expr Expr_let(InternId variable, ExprIndex vexpr, ExprIndex rexpr, Span span);
 void Expr_display(Expr *expr, ExprArray *expr_array, Interner *interner, size_t depth);
 Expr *Expr_box(Expr expr);
 
@@ -68,6 +82,5 @@ ExprArray ExprArray_new();
 void ExprArray_free(ExprArray *expr_array);
 ExprIndex ExprArray_append(ExprArray *expr_array, Expr expr);
 Expr ExprArray_get(ExprArray *expr_array, ExprIndex index);
-
 
 #endif // EXPR_H

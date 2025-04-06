@@ -6,26 +6,41 @@
 #include "lexer.h"
 #include "token.h"
 #include "parser.h"
+#include "interner.h"
+#include "resolver.h"
 
-void do_stuff(char *input) {
+void do_stuff(char *input, char *source_name) {
     Interner interner = Interner_new();
     ExprArray expr_array = ExprArray_new();
     Lexer lexer = Lexer_new(input, &interner);
     Parser parser = Parser_new(lexer, &expr_array);
+    Resolver resolver = Resolver_new();
 
-    ParseResult result = Parser_expr(&parser);
-    switch (result.kind) {
+    ParseResult parse_result = Parser_expr(&parser);
+    switch (parse_result.kind) {
         case PARSE_RESULT_ERROR:
-            ParseError parse_error = result.as.error;
-            ParseError_display(&parse_error, &interner, input, "REPL");
-            break;
+            ParseError parse_error = parse_result.as.error;
+            ParseError_display(&parse_error, &interner, input, source_name);
+            goto end;
         case PARSE_RESULT_SUCCESS:
-            Expr expr = ExprArray_get(&expr_array, result.as.expr_index);
-            Expr_display(&expr, &expr_array, &interner, 0);
-            break;
     }
+    ExprIndex expr_index = parse_result.as.expr_index;
+
+    ResolveResult resolve_result = Resolver_resolve(&resolver, &expr_array, expr_index);
+    switch (resolve_result.kind) {
+        case RESOLVE_RESULT_ERROR:
+            ResolveError resolve_error = resolve_result.error;
+            ResolveError_display(&resolve_error, &interner, input, source_name);
+            goto end;
+        case RESOLVE_RESULT_SUCCESS:
+    }
+
+    Expr expr = ExprArray_get(&expr_array, expr_index);
+    Expr_display(&expr, &expr_array, &interner, 0);
     printf("\n");
 
+end:
+    Resolver_free(&resolver);
     ExprArray_free(&expr_array);
     Interner_free(&interner);
 }
@@ -44,7 +59,7 @@ void repl() {
             continue;
         }
 
-        do_stuff(input);
+        do_stuff(input, "REPL");
     }
 }
 
@@ -59,7 +74,7 @@ void from_file(int argc, char *argv[]) {
     assert(length == fread(content, sizeof(char), length, file));
     content[length] = '\0';
 
-    do_stuff(content);
+    do_stuff(content, argv[0]);
 }
 
 int main(int argc, char *argv[]) {

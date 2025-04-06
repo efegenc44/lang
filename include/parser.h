@@ -34,6 +34,11 @@
     CHECK_PARSE_ERROR(name##_result);               \
     ExprIndex name = (name##_result).as.expr_index; \
 
+#define BINDParseT(name, expr)             \
+    ParseResult name##_result = (expr);    \
+    CHECK_PARSE_ERROR(name##_result);      \
+    Token name = (name##_result).as.token; \
+
 #define DOParse(expr)                \
     {                                \
         ParseResult result = (expr); \
@@ -69,7 +74,7 @@ typedef enum {
 
 typedef union {
     ExprIndex expr_index;
-    Token token; // unnecessary?
+    Token token;
     ParseError error;
 } ParseResultData;
 
@@ -83,6 +88,7 @@ ParseResult Parser_expr(Parser *parser);
 ParseResult Parser_binary(Parser *parser, size_t min_prec);
 ParseResult Parser_primary(Parser *parser);
 ParseResult Parser_finish_paren(Parser *parser);
+ParseResult Parser_finish_let(Parser *parser);
 LexResult Parser_advance_token(Parser *parser);
 LexResult Parser_peek_token(Parser *parser);
 ParseResult Parser_expect_kind(Parser *parser, TokenKind kind);

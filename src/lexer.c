@@ -49,6 +49,9 @@ LexResult Lexer_next(Lexer *lexer) {
         case '*':
             kind = STAR;
             break;
+        case '=':
+            kind = EQUALS;
+            break;
         default:
             Span span = Lexer_span(lexer, start);
             LexError error = LexError_uts(current_char, span);
@@ -80,11 +83,20 @@ LexResult Lexer_identifier(Lexer *lexer) {
         Lexer_advance(lexer);
     }
     size_t length = lexer->cursor - start_index;
-    char *lexeme = strndup(&lexer->source[start_index], length);
-    InternId lexeme_id = Interner_register(lexer->interner, lexeme);
 
+    Token token;
+    char *lexeme = &lexer->source[start_index];
     Span span = Lexer_span(lexer, start);
-    Token token = Token_identifier(lexeme_id, span);
+    if (strncmp(lexeme, "let", 3) == 0) {
+        token = Token_kind(LET_KEYWORD, span);
+    } else if (strncmp(lexeme, "in", 2) == 0) {
+        token = Token_kind(IN_KEYWORD, span);
+    } else {
+        char *lexeme = strndup(&lexer->source[start_index], length);
+        InternId lexeme_id = Interner_register(lexer->interner, lexeme);
+        token = Token_identifier(lexeme_id, span);
+    }
+
     return LexResult_success(token);
 }
 
