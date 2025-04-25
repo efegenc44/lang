@@ -7,15 +7,15 @@
 #include "interner.h"
 
 typedef enum {
-    INTEGER,
-    IDENTIFIER,
-    LEFT_PAREN,
-    RIGHT_PAREN,
-    PLUS,
-    STAR,
-    EQUALS,
-    LET_KEYWORD,
-    IN_KEYWORD,
+    TOKEN_INTEGER,
+    TOKEN_IDENTIFIER,
+    TOKEN_LEFT_PAREN,
+    TOKEN_RIGHT_PAREN,
+    TOKEN_PLUS,
+    TOKEN_STAR,
+    TOKEN_EQUALS,
+    TOKEN_KEYWORD_LET,
+    TOKEN_KEYWORD_IN,
 } TokenKind;
 
 typedef union {

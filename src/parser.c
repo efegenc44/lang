@@ -28,8 +28,8 @@ ParseResult Parser_binary(Parser *parser, size_t min_prec) {
         CHECK_LEX_ERROR(result);
         Token token = result.as.token;
         switch (token.kind) {
-            case PLUS:
-            case STAR:
+            case TOKEN_PLUS:
+            case TOKEN_STAR:
                 BOp bop = bop_from_token_kind(token.kind);
                 if (PrecTable[bop] < min_prec) goto end;
                 Parser_advance_token(parser);
@@ -59,9 +59,9 @@ ParseResult Parser_primary(Parser *parser) {
             return ParseResult_success_expr_index(
                 ExprArray_append(parser->expr_array, expr_ident)
             );
-        case LEFT_PAREN:
+        case TOKEN_LEFT_PAREN:
             return Parser_finish_paren(parser);
-        case LET_KEYWORD:
+        case TOKEN_KEYWORD_LET:
             return Parser_finish_let(parser);
         default:
             ParseError error = ParseError_ut(token);
@@ -71,16 +71,16 @@ ParseResult Parser_primary(Parser *parser) {
 
 ParseResult Parser_finish_paren(Parser *parser) {
     BINDParse(expr, Parser_expr(parser));
-    DOParse(Parser_expect_kind(parser, RIGHT_PAREN));
+    DOParse(Parser_expect_kind(parser, TOKEN_RIGHT_PAREN));
 
     return ParseResult_success_expr_index(expr);
 }
 
 ParseResult Parser_finish_let(Parser *parser) {
-    BINDParseT(variable, Parser_expect_kind(parser, IDENTIFIER));
-    DOParse(Parser_expect_kind(parser, EQUALS));
+    BINDParseT(variable, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
+    DOParse(Parser_expect_kind(parser, TOKEN_EQUALS));
     BINDParse(vexpr, Parser_expr(parser));
-    DOParse(Parser_expect_kind(parser, IN_KEYWORD));
+    DOParse(Parser_expect_kind(parser, TOKEN_KEYWORD_IN));
     BINDParse(rexpr, Parser_expr(parser));
     Expr let = Expr_let(variable.as.lexeme_id, vexpr, rexpr, variable.span);
     ExprIndex index = ExprArray_append(parser->expr_array, let);

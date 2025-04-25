@@ -14,7 +14,7 @@ Token Token_kind(TokenKind kind, Span span) {
 
 Token Token_integer(size_t integer, Span span) {
     return (Token) {
-        .kind = INTEGER,
+        .kind = TOKEN_INTEGER,
         .as.integer = integer,
         .span = span
     };
@@ -22,7 +22,7 @@ Token Token_integer(size_t integer, Span span) {
 
 Token Token_identifier(InternId lexeme_id, Span span) {
     return (Token) {
-        .kind = IDENTIFIER,
+        .kind = TOKEN_IDENTIFIER,
         .as.lexeme_id = lexeme_id,
         .span = span
     };
@@ -30,31 +30,31 @@ Token Token_identifier(InternId lexeme_id, Span span) {
 
 void Token_display(Token *token, Interner *interner) {
     switch (token->kind) {
-        case INTEGER:
+        case TOKEN_INTEGER:
             printf("%ld", token->as.integer);
             break;
-        case IDENTIFIER:
+        case TOKEN_IDENTIFIER:
             printf("%s", Interner_get(interner, token->as.lexeme_id));
             break;
-        case LEFT_PAREN:
+        case TOKEN_LEFT_PAREN:
             printf("(");
             break;
-        case RIGHT_PAREN:
+        case TOKEN_RIGHT_PAREN:
             printf(")");
             break;
-        case PLUS:
+        case TOKEN_PLUS:
             printf("+");
             break;
-        case STAR:
+        case TOKEN_STAR:
             printf("*");
             break;
-        case EQUALS:
+        case TOKEN_EQUALS:
             printf("=");
             break;
-        case LET_KEYWORD:
+        case TOKEN_KEYWORD_LET:
             printf("let");
             break;
-        case IN_KEYWORD:
+        case TOKEN_KEYWORD_IN:
             printf("in");
             break;
     }

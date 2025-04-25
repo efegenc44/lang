@@ -18,8 +18,8 @@ const Assoc AssocTable[2] = {
 
 BOp bop_from_token_kind(TokenKind kind) {
     switch (kind) {
-        case PLUS: return BOP_ADD;
-        case STAR: return BOP_MUL;
+        case TOKEN_PLUS: return BOP_ADD;
+        case TOKEN_STAR: return BOP_MUL;
         default: assert(false);
     }
 }
