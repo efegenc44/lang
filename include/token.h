@@ -17,6 +17,7 @@ typedef enum {
     TOKEN_BACKSLASH,
     TOKEN_KEYWORD_LET,
     TOKEN_KEYWORD_IN,
+    TOKEN_KEYWORD_DEF,
 } TokenKind;
 
 typedef union {

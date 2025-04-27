@@ -60,5 +60,8 @@ void Token_display(Token *token, Interner *interner) {
         case TOKEN_KEYWORD_IN:
             printf("in");
             break;
+        case TOKEN_KEYWORD_DEF:
+            printf("def");
+            break;
     }
 }

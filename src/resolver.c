@@ -40,12 +40,12 @@ FindResult LocalStack_find(LocalStack *stack, InternId id) {
         };
     }
 
-    for (size_t i = stack->length - 1; i >= 0; i--) {
-        if (id == stack->names[i]) {
+    // de Bruijn indicies
+    for (size_t i = 0; i < stack->length; i++) {
+        if (id == stack->names[stack->length - 1 - i]) {
             return (FindResult) {
                 .success = true,
-                // de Bruijn indicies
-                .id = stack->length - 1 - i
+                .id = i
             };
         }
     }
@@ -65,7 +65,22 @@ void Resolver_free(Resolver *resolver) {
     LocalStack_free(&resolver->locals);
 }
 
-ResolveResult Resolver_resolve(Resolver *resolver, ExprArray *expr_array, ExprIndex expr_index) {
+ResolveResult Resolver_decls(Resolver *resolver, DeclMap *decl_map, ExprArray *expr_array) {
+    for (size_t i = 0; i < decl_map->length; i++) {
+        DeclPair *pair = &decl_map->pairs[i];
+        switch (pair->decl.kind) {
+            case DECL_BIND:
+                Bind *bind = &pair->decl.as.bind;
+                DOResolve(Resolver_expr(resolver, decl_map, expr_array, bind->expr));
+                break;
+        }
+    }
+
+    return ResolveResult_success();
+}
+
+
+ResolveResult Resolver_expr(Resolver *resolver, DeclMap *decl_map, ExprArray *expr_array, ExprIndex expr_index) {
     Expr *expr = &expr_array->exprs[expr_index];
     switch (expr->kind) {
         case EXPR_INTEGER:
@@ -73,36 +88,43 @@ ResolveResult Resolver_resolve(Resolver *resolver, ExprArray *expr_array, ExprIn
         case EXPR_IDENTIFIER:
             Identifier *ident = &expr->as.identifier;
             InternId intern_id = ident->identifier_id;
+            // Look in local scope
             FindResult result = LocalStack_find(&resolver->locals, intern_id);
             if (result.success) {
                 ident->bound = Bound_local(result.id);
             } else {
-                ResolveError error = ResolveError_ui(intern_id, expr->sign_span);
-                return ResolveResult_error(error);
+                // Look in global scope
+                DeclGetResult r = DeclMap_get(decl_map, intern_id);
+                if (r.success) {
+                    ident->bound = Bound_global(intern_id);
+                } else {
+                    ResolveError error = ResolveError_ui(intern_id, expr->sign_span);
+                    return ResolveResult_error(error);
+                }
             }
             break;
         case EXPR_BINARY:
             Binary *binary = &expr->as.binary;
-            DOResolve(Resolver_resolve(resolver, expr_array, binary->lhs));
-            DOResolve(Resolver_resolve(resolver, expr_array, binary->rhs));
+            DOResolve(Resolver_expr(resolver, decl_map, expr_array, binary->lhs));
+            DOResolve(Resolver_expr(resolver, decl_map, expr_array, binary->rhs));
             break;
         case EXPR_LET:
             Let *let = &expr->as.let;
-            DOResolve(Resolver_resolve(resolver, expr_array, let->vexpr));
+            DOResolve(Resolver_expr(resolver, decl_map, expr_array, let->vexpr));
             LocalStack_push(&resolver->locals, let->variable);
-                DOResolve(Resolver_resolve(resolver, expr_array, let->rexpr));
+                DOResolve(Resolver_expr(resolver, decl_map, expr_array, let->rexpr));
             LocalStack_pop(&resolver->locals);
             break;
         case EXPR_LAMBDA:
             Lambda *lambda = &expr->as.lambda;
             LocalStack_push(&resolver->locals, lambda->variable);
-                DOResolve(Resolver_resolve(resolver, expr_array, lambda->expr));
+                DOResolve(Resolver_expr(resolver, decl_map, expr_array, lambda->expr));
             LocalStack_pop(&resolver->locals);
             break;
         case EXPR_APPLICATION:
             Application *appl = &expr->as.application;
-            DOResolve(Resolver_resolve(resolver, expr_array, appl->function));
-            DOResolve(Resolver_resolve(resolver, expr_array, appl->argument));
+            DOResolve(Resolver_expr(resolver, decl_map, expr_array, appl->function));
+            DOResolve(Resolver_expr(resolver, decl_map, expr_array, appl->argument));
             break;
     };
 

@@ -7,6 +7,7 @@
 #include "expr.h"
 #include "bound.h"
 #include "span.h"
+#include "decl.h"
 
 #define CHECK_RESOLVE_ERROR(result)  \
     switch ((result).kind) {         \
@@ -67,7 +68,8 @@ FindResult LocalStack_find(LocalStack *stack, InternId id);
 
 Resolver Resolver_new();
 void Resolver_free(Resolver *resolver);
-ResolveResult Resolver_resolve(Resolver *resolver, ExprArray *expr_array, ExprIndex expr_index);
+ResolveResult Resolver_decls(Resolver *resolver, DeclMap *decl_map, ExprArray *expr_array);
+ResolveResult Resolver_expr(Resolver *resolver, DeclMap *decl_map, ExprArray *expr_array, ExprIndex expr_index);
 
 ResolveError ResolveError_ui(InternId identifier, Span span);
 void ResolveError_display(ResolveError *error, Interner *interner, char *source, char *source_name);

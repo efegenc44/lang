@@ -3,6 +3,7 @@
 
 #include "lexer.h"
 #include "expr.h"
+#include "decl.h"
 
 #define CHECK_LEX_ERROR(result)                                   \
     if ((result).kind == LEX_RESULT_ERROR) {                      \
@@ -49,6 +50,7 @@ typedef struct {
     Lexer lexer;
     LexResult peek;
     ExprArray *expr_array;
+    DeclMap *decl_map;
 } Parser;
 
 typedef enum {
@@ -83,7 +85,10 @@ typedef struct {
     ParseResultData as;
 } ParseResult;
 
-Parser Parser_new(Lexer lexer, ExprArray *expr_array);
+Parser Parser_new(Lexer lexer, ExprArray *expr_array, DeclMap *decl_map);
+ParseResult Parser_decls(Parser *parser);
+ParseResult Parser_decl(Parser *parser);
+ParseResult Parser_finish_bind(Parser *parser);
 ParseResult Parser_expr(Parser *parser);
 ParseResult Parser_binary(Parser *parser, size_t min_prec);
 ParseResult Parser_application(Parser *parser);
@@ -102,6 +107,7 @@ void ParseError_display(ParseError *error, Interner *interner, char *source, cha
 
 ParseResult ParseResult_success_expr_index(ExprIndex expr_index);
 ParseResult ParseResult_success_token(Token token);
+ParseResult ParseResult_success();
 ParseResult ParseResult_error(ParseError error);
 
 #endif // PARSER_H

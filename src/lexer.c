@@ -94,6 +94,8 @@ LexResult Lexer_identifier(Lexer *lexer) {
         token = Token_kind(TOKEN_KEYWORD_LET, span);
     } else if (strncmp(lexeme, "in", 2) == 0) {
         token = Token_kind(TOKEN_KEYWORD_IN, span);
+    } else if (strncmp(lexeme, "def", 3) == 0) {
+        token = Token_kind(TOKEN_KEYWORD_DEF, span);
     } else {
         char *lexeme = strndup(&lexer->source[start_index], length);
         InternId lexeme_id = Interner_register(lexer->interner, lexeme);

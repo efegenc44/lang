@@ -3,15 +3,56 @@
 #include <stdio.h>
 
 #include "parser.h"
+#include "expr.h"
+#include "decl.h"
 
-Parser Parser_new(Lexer lexer, ExprArray *expr_array) {
+#define WHILE_STILL_TOKEN_LEFT(result)                  \
+    for (LexResult (result) = Parser_peek_token(parser);\
+         (result).kind != LEX_RESULT_DONE;              \
+         (result) = Parser_peek_token(parser))          \
+
+Parser Parser_new(Lexer lexer, ExprArray *expr_array, DeclMap *decl_map) {
     LexResult peek = Lexer_next(&lexer);
 
     return (Parser) {
         .lexer = lexer,
         .peek = peek,
-        .expr_array = expr_array
+        .expr_array = expr_array,
+        .decl_map = decl_map
     };
+}
+
+ParseResult Parser_decls(Parser *parser) {
+    WHILE_STILL_TOKEN_LEFT(result) {
+        CHECK_LEX_ERROR(result);
+        DOParse(Parser_decl(parser));
+    }
+
+    return ParseResult_success();
+}
+
+ParseResult Parser_decl(Parser *parser) {
+    Token token = Parser_peek_token(parser).as.token;
+    switch (token.kind) {
+        case TOKEN_KEYWORD_DEF:
+            return Parser_finish_bind(parser);
+        default:
+            ParseError error = ParseError_ut(token);
+            return ParseResult_error(error);
+    }
+}
+
+ParseResult Parser_finish_bind(Parser *parser) {
+    Parser_advance_token(parser);
+    BINDParseT(token, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
+    DOParse(Parser_expect_kind(parser, TOKEN_EQUALS));
+    BINDParse(expr, Parser_expr(parser));
+    Decl bind = Decl_bind(token.as.lexeme_id, expr, token.span);
+    // TODO: We use the same InternId twice, in Decl and in DeclPair
+    // maybe we don't need InternId in Decl.
+    DeclMap_add(parser->decl_map, token.as.lexeme_id, bind);
+
+    return ParseResult_success();
 }
 
 ParseResult Parser_expr(Parser *parser) {
@@ -29,10 +70,7 @@ ParseResult Parser_expr(Parser *parser) {
 
 ParseResult Parser_binary(Parser *parser, size_t min_prec) {
     BINDParse(lhs, Parser_application(parser));
-    for (LexResult result = Parser_peek_token(parser);
-         result.kind != LEX_RESULT_DONE;
-         result = Parser_peek_token(parser))
-    {
+    WHILE_STILL_TOKEN_LEFT(result) {
         CHECK_LEX_ERROR(result);
         Token token = result.as.token;
         switch (token.kind) {
@@ -56,10 +94,7 @@ end:
 
 ParseResult Parser_application(Parser *parser) {
     BINDParse(function, Parser_primary(parser));
-    for (LexResult result = Parser_peek_token(parser);
-         result.kind != LEX_RESULT_DONE;
-         result = Parser_peek_token(parser))
-    {
+    WHILE_STILL_TOKEN_LEFT(result) {
         CHECK_LEX_ERROR(result);
         Token token = result.as.token;
         switch (token.kind) {
@@ -68,7 +103,8 @@ ParseResult Parser_application(Parser *parser) {
             case TOKEN_IDENTIFIER:
             case TOKEN_LEFT_PAREN:
                 BINDParse(argument, Parser_primary(parser));
-                    function = ExprArray_append(parser->expr_array, Expr_application(function, argument, token.span));
+                function = ExprArray_append(parser->expr_array, Expr_application(function, argument, token.span));
+                break;
             default:
                 goto end;
         }
@@ -206,6 +242,12 @@ ParseResult ParseResult_success_token(Token token) {
     return (ParseResult) {
         .kind = PARSE_RESULT_SUCCESS,
         .as.token = token
+    };
+}
+
+ParseResult ParseResult_success() {
+    return (ParseResult) {
+        .kind = PARSE_RESULT_SUCCESS,
     };
 }
 

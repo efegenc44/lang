@@ -9,6 +9,13 @@ Bound Bound_local(BoundId id) {
     };
 }
 
+Bound Bound_global(BoundId id) {
+    return (Bound) {
+        .kind = BOUND_GLOBAL,
+        .id = id
+    };
+}
+
 Bound Bound_undetermined() {
     return (Bound) {
         .kind = BOUND_UNDETERMINED
@@ -22,6 +29,10 @@ void Bound_display(Bound *bound) {
             break;
         case BOUND_LOCAL:
             printf("(local %ld)", bound->id);
+            break;
+        case BOUND_GLOBAL:
+            // TODO: print the name with Interner
+            printf("(global %ld)", bound->id);
             break;
     }
 }
