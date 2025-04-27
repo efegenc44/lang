@@ -54,14 +54,29 @@ void Token_display(Token *token, Interner *interner) {
         case TOKEN_BACKSLASH:
             printf("\\");
             break;
+        case TOKEN_COLON:
+            printf(":");
+            break;
+        case TOKEN_MINUS:
+            printf("-");
+            break;
+        case TOKEN_RIGHT_ARROW:
+            printf("->");
+            break;
         case TOKEN_KEYWORD_LET:
             printf("let");
             break;
         case TOKEN_KEYWORD_IN:
             printf("in");
             break;
-        case TOKEN_KEYWORD_DEF:
-            printf("def");
+        case TOKEN_KEYWORD_DEFN:
+            printf("defn");
+            break;
+        case TOKEN_KEYWORD_DECL:
+            printf("decl");
+            break;
+        case TOKEN_KEYWORD_TYPE:
+            printf("type");
             break;
     }
 }

@@ -11,15 +11,57 @@
          (result).kind != LEX_RESULT_DONE;              \
          (result) = Parser_peek_token(parser))          \
 
-Parser Parser_new(Lexer lexer, ExprArray *expr_array, DeclMap *decl_map) {
+Parser Parser_new(Lexer lexer, ExprArray *expr_array, TypeExprArray *type_expr_array, DeclMap *decl_map) {
     LexResult peek = Lexer_next(&lexer);
 
     return (Parser) {
         .lexer = lexer,
         .peek = peek,
         .expr_array = expr_array,
+        .type_expr_array = type_expr_array,
         .decl_map = decl_map
     };
+}
+
+ParseResult Parser_type_expr(Parser *parser) {
+    return Parser_type_arrow(parser);
+}
+
+ParseResult Parser_type_arrow(Parser *parser) {
+    // Anonymous product and anonymous sum? types ?
+    BINDParseTE(from, Parser_type_primary(parser));
+    BINDLex(token, Parser_peek_token(parser));
+    if (token.kind == TOKEN_RIGHT_ARROW) {
+        Parser_advance_token(parser);
+        BINDParseTE(to, Parser_type_arrow(parser));
+        TypeExpr type_expr = TypeExpr_arrow(from, to, token.span);
+        from = TypeExprArray_append(parser->type_expr_array, type_expr);
+    }
+
+    return ParseResult_success_type_expr_index(from);
+}
+
+ParseResult Parser_type_primary(Parser *parser) {
+    BINDLex(token, Parser_advance_token(parser));
+    switch (token.kind) {
+        case TOKEN_IDENTIFIER:
+            TypeExpr type_expr_ident = TypeExpr_identifier(token.as.lexeme_id, token.span);
+            return ParseResult_success_expr_index(
+                TypeExprArray_append(parser->type_expr_array, type_expr_ident)
+            );
+        case TOKEN_LEFT_PAREN:
+            return Parser_finish_paren_type(parser);
+        default:
+            ParseError error = ParseError_ut(token);
+            return ParseResult_error(error);
+    }
+}
+
+ParseResult Parser_finish_paren_type(Parser *parser) {
+    BINDParseTE(type_expr, Parser_type_expr(parser));
+    DOParse(Parser_expect_kind(parser, TOKEN_RIGHT_PAREN));
+
+    return ParseResult_success_type_expr_index(type_expr);
 }
 
 ParseResult Parser_decls(Parser *parser) {
@@ -34,8 +76,12 @@ ParseResult Parser_decls(Parser *parser) {
 ParseResult Parser_decl(Parser *parser) {
     Token token = Parser_peek_token(parser).as.token;
     switch (token.kind) {
-        case TOKEN_KEYWORD_DEF:
+        case TOKEN_KEYWORD_DEFN:
             return Parser_finish_bind(parser);
+        case TOKEN_KEYWORD_DECL:
+            return Parser_finish_decl(parser);
+        case TOKEN_KEYWORD_TYPE:
+            return Parser_finish_type(parser);
         default:
             ParseError error = ParseError_ut(token);
             return ParseResult_error(error);
@@ -51,6 +97,26 @@ ParseResult Parser_finish_bind(Parser *parser) {
     // TODO: We use the same InternId twice, in Decl and in DeclPair
     // maybe we don't need InternId in Decl.
     DeclMap_add(parser->decl_map, token.as.lexeme_id, bind);
+
+    return ParseResult_success();
+}
+
+ParseResult Parser_finish_decl(Parser *parser) {
+    Parser_advance_token(parser);
+    BINDParseT(token, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
+    DOParse(Parser_expect_kind(parser, TOKEN_COLON));
+    BINDParseTE(type_expr, Parser_type_expr(parser));
+    Decl decldecl = Decl_decldecl(token.as.lexeme_id, type_expr, token.span);
+    DeclMap_add(parser->decl_map, token.as.lexeme_id, decldecl);
+
+    return ParseResult_success();
+}
+
+ParseResult Parser_finish_type(Parser *parser) {
+    Parser_advance_token(parser);
+    BINDParseT(token, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
+    Decl type = Decl_type(token.as.lexeme_id, token.span);
+    DeclMap_add(parser->decl_map, token.as.lexeme_id, type);
 
     return ParseResult_success();
 }
@@ -229,6 +295,13 @@ void ParseError_display(ParseError *error, Interner *interner, char *source, cha
     printf(" (at parsing)\n");
     Span_display_in_source(&error->as.token.span, source);
     printf("\n");
+}
+
+ParseResult ParseResult_success_type_expr_index(TypeExprIndex type_expr_index) {
+    return (ParseResult) {
+        .kind = PARSE_RESULT_SUCCESS,
+        .as.type_expr_index = type_expr_index
+    };
 }
 
 ParseResult ParseResult_success_expr_index(ExprIndex expr_index) {

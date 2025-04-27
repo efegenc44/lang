@@ -1,0 +1,12 @@
+type Int
+
+decl add : Int -> Int -> Int
+defn add = \x \y
+    x + y
+
+
+decl main : Int
+defn main =
+    let x = \x x in
+    let y = \y y in
+        x y

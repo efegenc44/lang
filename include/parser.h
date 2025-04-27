@@ -3,6 +3,7 @@
 
 #include "lexer.h"
 #include "expr.h"
+#include "type_expr.h"
 #include "decl.h"
 
 #define CHECK_LEX_ERROR(result)                                   \
@@ -35,6 +36,11 @@
     CHECK_PARSE_ERROR(name##_result);               \
     ExprIndex name = (name##_result).as.expr_index; \
 
+#define BINDParseTE(name, expr)                              \
+    ParseResult name##_result = (expr);                      \
+    CHECK_PARSE_ERROR(name##_result);                        \
+    TypeExprIndex name = (name##_result).as.type_expr_index; \
+
 #define BINDParseT(name, expr)             \
     ParseResult name##_result = (expr);    \
     CHECK_PARSE_ERROR(name##_result);      \
@@ -50,6 +56,7 @@ typedef struct {
     Lexer lexer;
     LexResult peek;
     ExprArray *expr_array;
+    TypeExprArray *type_expr_array;
     DeclMap *decl_map;
 } Parser;
 
@@ -76,6 +83,7 @@ typedef enum {
 
 typedef union {
     ExprIndex expr_index;
+    TypeExprIndex type_expr_index;
     Token token;
     ParseError error;
 } ParseResultData;
@@ -85,10 +93,16 @@ typedef struct {
     ParseResultData as;
 } ParseResult;
 
-Parser Parser_new(Lexer lexer, ExprArray *expr_array, DeclMap *decl_map);
+Parser Parser_new(Lexer lexer, ExprArray *expr_array, TypeExprArray *type_expr_array, DeclMap *decl_map);
+ParseResult Parser_type_expr(Parser *parser);
+ParseResult Parser_type_arrow(Parser *parser);
+ParseResult Parser_type_primary(Parser *parser);
+ParseResult Parser_finish_paren_type(Parser *parser);
 ParseResult Parser_decls(Parser *parser);
 ParseResult Parser_decl(Parser *parser);
 ParseResult Parser_finish_bind(Parser *parser);
+ParseResult Parser_finish_decl(Parser *parser);
+ParseResult Parser_finish_type(Parser *parser);
 ParseResult Parser_expr(Parser *parser);
 ParseResult Parser_binary(Parser *parser, size_t min_prec);
 ParseResult Parser_application(Parser *parser);
@@ -105,6 +119,7 @@ ParseError ParseError_ueof();
 ParseError ParseError_lex_error(LexError error);
 void ParseError_display(ParseError *error, Interner *interner, char *source, char *source_name);
 
+ParseResult ParseResult_success_type_expr_index(TypeExprIndex type_expr_index);
 ParseResult ParseResult_success_expr_index(ExprIndex expr_index);
 ParseResult ParseResult_success_token(Token token);
 ParseResult ParseResult_success();

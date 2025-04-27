@@ -57,21 +57,34 @@ FindResult LocalStack_find(LocalStack *stack, InternId id) {
 
 Resolver Resolver_new() {
     return (Resolver) {
-        .locals = LocalStack_new()
+        .locals = LocalStack_new(),
+        .types = LocalStack_new(),
+        .defns = LocalStack_new(),
     };
 }
 
 void Resolver_free(Resolver *resolver) {
     LocalStack_free(&resolver->locals);
+    LocalStack_free(&resolver->types);
+    LocalStack_free(&resolver->defns);
 }
 
-ResolveResult Resolver_decls(Resolver *resolver, DeclMap *decl_map, ExprArray *expr_array) {
+ResolveResult Resolver_collect_names(Resolver *resolver, DeclMap *decl_map, ExprArray *expr_array, TypeExprArray *type_expr_array) {
     for (size_t i = 0; i < decl_map->length; i++) {
         DeclPair *pair = &decl_map->pairs[i];
+        // TODO: Check for duplicates
         switch (pair->decl.kind) {
             case DECL_BIND:
                 Bind *bind = &pair->decl.as.bind;
-                DOResolve(Resolver_expr(resolver, decl_map, expr_array, bind->expr));
+                LocalStack_push(&resolver->defns, bind->name);
+                break;
+            case DECL_DECL:
+                DeclDecl *decldecl = &pair->decl.as.decldecl;
+                LocalStack_push(&resolver->defns, decldecl->name);
+                break;
+            case DECL_TYPE:
+                Type *type = &pair->decl.as.type;
+                LocalStack_push(&resolver->types, type->name);
                 break;
         }
     }
@@ -79,6 +92,51 @@ ResolveResult Resolver_decls(Resolver *resolver, DeclMap *decl_map, ExprArray *e
     return ResolveResult_success();
 }
 
+ResolveResult Resolver_decls(Resolver *resolver, DeclMap *decl_map, ExprArray *expr_array, TypeExprArray *type_expr_array) {
+    DOResolve(Resolver_collect_names(resolver, decl_map, expr_array, type_expr_array));
+    for (size_t i = 0; i < decl_map->length; i++) {
+        DeclPair *pair = &decl_map->pairs[i];
+        switch (pair->decl.kind) {
+            case DECL_BIND:
+                Bind *bind = &pair->decl.as.bind;
+                DOResolve(Resolver_expr(resolver, decl_map, expr_array, bind->expr));
+                break;
+            case DECL_DECL:
+                DeclDecl *decldecl = &pair->decl.as.decldecl;
+                DOResolve(Resolver_type_expr(resolver, decl_map, type_expr_array, decldecl->type_expr));
+                break;
+            case DECL_TYPE:
+                break;
+        }
+    }
+
+    return ResolveResult_success();
+}
+
+ResolveResult Resolver_type_expr(Resolver *resolver, DeclMap *decl_map, TypeExprArray *type_expr_array, TypeExprIndex type_expr_index) {
+    TypeExpr *type_expr = &type_expr_array->type_exprs[type_expr_index];
+    switch (type_expr->kind) {
+        case TYPE_EXPR_IDENTIFIER:
+            TypeIdentifier *ident = &type_expr->as.type_ident;
+            InternId intern_id = ident->identifier_id;
+            FindResult r = LocalStack_find(&resolver->types, intern_id);
+            if (r.success) {
+                ident->bound = Bound_global(intern_id);
+            } else {
+                printf("merhab\n");
+                ResolveError error = ResolveError_ui(intern_id, type_expr->sign_span);
+                return ResolveResult_error(error);
+            }
+            break;
+        case TYPE_EXPR_ARROW:
+            TypeArrow *arrow = &type_expr->as.type_arrow;
+            DOResolve(Resolver_type_expr(resolver, decl_map, type_expr_array, arrow->from));
+            DOResolve(Resolver_type_expr(resolver, decl_map, type_expr_array, arrow->to));
+            break;
+    };
+
+    return ResolveResult_success();
+}
 
 ResolveResult Resolver_expr(Resolver *resolver, DeclMap *decl_map, ExprArray *expr_array, ExprIndex expr_index) {
     Expr *expr = &expr_array->exprs[expr_index];
@@ -94,7 +152,7 @@ ResolveResult Resolver_expr(Resolver *resolver, DeclMap *decl_map, ExprArray *ex
                 ident->bound = Bound_local(result.id);
             } else {
                 // Look in global scope
-                DeclGetResult r = DeclMap_get(decl_map, intern_id);
+                FindResult r = LocalStack_find(&resolver->defns, intern_id);
                 if (r.success) {
                     ident->bound = Bound_global(intern_id);
                 } else {
