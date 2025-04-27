@@ -44,7 +44,8 @@ FindResult LocalStack_find(LocalStack *stack, InternId id) {
         if (id == stack->names[i]) {
             return (FindResult) {
                 .success = true,
-                .id = i
+                // de Bruijn indicies
+                .id = stack->length - 1 - i
             };
         }
     }
@@ -91,6 +92,17 @@ ResolveResult Resolver_resolve(Resolver *resolver, ExprArray *expr_array, ExprIn
             LocalStack_push(&resolver->locals, let->variable);
                 DOResolve(Resolver_resolve(resolver, expr_array, let->rexpr));
             LocalStack_pop(&resolver->locals);
+            break;
+        case EXPR_LAMBDA:
+            Lambda *lambda = &expr->as.lambda;
+            LocalStack_push(&resolver->locals, lambda->variable);
+                DOResolve(Resolver_resolve(resolver, expr_array, lambda->expr));
+            LocalStack_pop(&resolver->locals);
+            break;
+        case EXPR_APPLICATION:
+            Application *appl = &expr->as.application;
+            DOResolve(Resolver_resolve(resolver, expr_array, appl->function));
+            DOResolve(Resolver_resolve(resolver, expr_array, appl->argument));
             break;
     };
 

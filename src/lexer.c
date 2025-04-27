@@ -52,6 +52,9 @@ LexResult Lexer_next(Lexer *lexer) {
         case '=':
             kind = TOKEN_EQUALS;
             break;
+        case '\\':
+            kind = TOKEN_BACKSLASH;
+            break;
         default:
             Span span = Lexer_span(lexer, start);
             LexError error = LexError_uts(current_char, span);

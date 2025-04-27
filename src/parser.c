@@ -16,11 +16,19 @@ Parser Parser_new(Lexer lexer, ExprArray *expr_array) {
 
 ParseResult Parser_expr(Parser *parser) {
     // TODO: Check if exhausted all tokens
-    return Parser_binary(parser, 0);
+    BINDLex(token, Parser_peek_token(parser));
+    switch (token.kind) {
+        case TOKEN_KEYWORD_LET:
+            return Parser_finish_let(parser);
+        case TOKEN_BACKSLASH:
+            return Parser_finish_lambda(parser);
+        default:
+            return Parser_binary(parser, 0);
+    }
 }
 
 ParseResult Parser_binary(Parser *parser, size_t min_prec) {
-    BINDParse(lhs, Parser_primary(parser));
+    BINDParse(lhs, Parser_application(parser));
     for (LexResult result = Parser_peek_token(parser);
          result.kind != LEX_RESULT_DONE;
          result = Parser_peek_token(parser))
@@ -46,23 +54,44 @@ end:
     return ParseResult_success_expr_index(lhs);
 }
 
+ParseResult Parser_application(Parser *parser) {
+    BINDParse(function, Parser_primary(parser));
+    for (LexResult result = Parser_peek_token(parser);
+         result.kind != LEX_RESULT_DONE;
+         result = Parser_peek_token(parser))
+    {
+        CHECK_LEX_ERROR(result);
+        Token token = result.as.token;
+        switch (token.kind) {
+            // Primary expression starting tokens
+            case TOKEN_INTEGER:
+            case TOKEN_IDENTIFIER:
+            case TOKEN_LEFT_PAREN:
+                BINDParse(argument, Parser_primary(parser));
+                    function = ExprArray_append(parser->expr_array, Expr_application(function, argument, token.span));
+            default:
+                goto end;
+        }
+    }
+end:
+    return ParseResult_success_expr_index(function);
+}
+
 ParseResult Parser_primary(Parser *parser) {
     BINDLex(token, Parser_advance_token(parser));
     switch (token.kind) {
-        case EXPR_INTEGER:
+        case TOKEN_INTEGER:
             Expr expr_int = Expr_integer(token.as.integer, token.span);
             return ParseResult_success_expr_index(
                 ExprArray_append(parser->expr_array, expr_int)
             );
-        case EXPR_IDENTIFIER:
+        case TOKEN_IDENTIFIER:
             Expr expr_ident = Expr_identifier(token.as.lexeme_id, token.span);
             return ParseResult_success_expr_index(
                 ExprArray_append(parser->expr_array, expr_ident)
             );
         case TOKEN_LEFT_PAREN:
             return Parser_finish_paren(parser);
-        case TOKEN_KEYWORD_LET:
-            return Parser_finish_let(parser);
         default:
             ParseError error = ParseError_ut(token);
             return ParseResult_error(error);
@@ -77,6 +106,7 @@ ParseResult Parser_finish_paren(Parser *parser) {
 }
 
 ParseResult Parser_finish_let(Parser *parser) {
+    Parser_advance_token(parser);
     BINDParseT(variable, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
     DOParse(Parser_expect_kind(parser, TOKEN_EQUALS));
     BINDParse(vexpr, Parser_expr(parser));
@@ -84,6 +114,16 @@ ParseResult Parser_finish_let(Parser *parser) {
     BINDParse(rexpr, Parser_expr(parser));
     Expr let = Expr_let(variable.as.lexeme_id, vexpr, rexpr, variable.span);
     ExprIndex index = ExprArray_append(parser->expr_array, let);
+
+    return ParseResult_success_expr_index(index);
+}
+
+ParseResult Parser_finish_lambda(Parser *parser) {
+    Parser_advance_token(parser);
+    BINDParseT(variable, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
+    BINDParse(expr, Parser_expr(parser));
+    Expr lambda = Expr_lambda(variable.as.lexeme_id, expr, variable.span);
+    ExprIndex index = ExprArray_append(parser->expr_array, lambda);
 
     return ParseResult_success_expr_index(index);
 }

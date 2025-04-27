@@ -67,6 +67,28 @@ Expr Expr_let(InternId variable, ExprIndex vexpr, ExprIndex rexpr, Span span) {
     };
 }
 
+Expr Expr_lambda(InternId variable, ExprIndex expr, Span span) {
+    return (Expr) {
+        .kind = EXPR_LAMBDA,
+        .as.lambda = {
+            .variable = variable,
+            .expr = expr
+        },
+        .sign_span = span
+    };
+}
+
+Expr Expr_application(ExprIndex function, ExprIndex argument, Span span) {
+    return (Expr) {
+        .kind = EXPR_APPLICATION,
+        .as.application = {
+            .function = function,
+            .argument = argument
+        },
+        .sign_span = span
+    };
+}
+
 void Expr_display(Expr *expr, ExprArray *expr_array, Interner *interner, size_t depth) {
     for (size_t i = 0; i < depth*2; i++) printf(" ");
     switch (expr->kind) {
@@ -111,6 +133,24 @@ void Expr_display(Expr *expr, ExprArray *expr_array, Interner *interner, size_t 
             Expr_display(&vexpr, expr_array, interner, depth + 1);
             printf("\n");
             Expr_display(&rexpr, expr_array, interner, depth + 1);
+            break;
+        case EXPR_LAMBDA:
+            printf("\\%s", Interner_get(interner, expr->as.lambda.variable));
+            printf(" | ");
+            Span_display_start(&expr->sign_span);
+            printf("\n");
+            Expr lexpr = ExprArray_get(expr_array, expr->as.lambda.expr);
+            Expr_display(&lexpr, expr_array, interner, depth + 1);
+            break;
+        case EXPR_APPLICATION:
+            printf("Application");
+            printf(" | ");
+            Span_display_start(&expr->sign_span);
+            printf("\n");
+            Expr function = ExprArray_get(expr_array, expr->as.application.function);
+            Expr_display(&function, expr_array, interner, depth + 1);
+            Expr argument = ExprArray_get(expr_array, expr->as.application.argument);
+            Expr_display(&argument, expr_array, interner, depth + 1);
             break;
     }
 }

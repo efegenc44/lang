@@ -38,11 +38,23 @@ typedef struct {
     ExprIndex rexpr;
 } Let;
 
+typedef struct {
+    InternId variable;
+    ExprIndex expr;
+} Lambda;
+
+typedef struct {
+    ExprIndex function;
+    ExprIndex argument;
+} Application;
+
 typedef enum {
     EXPR_INTEGER,
     EXPR_IDENTIFIER,
     EXPR_BINARY,
     EXPR_LET,
+    EXPR_LAMBDA,
+    EXPR_APPLICATION,
 } ExprKind;
 
 typedef union {
@@ -50,6 +62,8 @@ typedef union {
     Identifier identifier;
     Binary binary;
     Let let;
+    Lambda lambda;
+    Application application;
 } ExprData;
 
 typedef struct {
@@ -75,6 +89,8 @@ Expr Expr_integer(size_t integer, Span span);
 Expr Expr_identifier(InternId identifier_id, Span span);
 Expr Expr_binary(ExprIndex lhs, BOp bop, ExprIndex rhs, Span span);
 Expr Expr_let(InternId variable, ExprIndex vexpr, ExprIndex rexpr, Span span);
+Expr Expr_lambda(InternId variable, ExprIndex expr, Span span);
+Expr Expr_application(ExprIndex function, ExprIndex argument, Span span);
 void Expr_display(Expr *expr, ExprArray *expr_array, Interner *interner, size_t depth);
 Expr *Expr_box(Expr expr);
 

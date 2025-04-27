@@ -86,9 +86,11 @@ typedef struct {
 Parser Parser_new(Lexer lexer, ExprArray *expr_array);
 ParseResult Parser_expr(Parser *parser);
 ParseResult Parser_binary(Parser *parser, size_t min_prec);
+ParseResult Parser_application(Parser *parser);
 ParseResult Parser_primary(Parser *parser);
 ParseResult Parser_finish_paren(Parser *parser);
 ParseResult Parser_finish_let(Parser *parser);
+ParseResult Parser_finish_lambda(Parser *parser);
 LexResult Parser_advance_token(Parser *parser);
 LexResult Parser_peek_token(Parser *parser);
 ParseResult Parser_expect_kind(Parser *parser, TokenKind kind);

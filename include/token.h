@@ -14,6 +14,7 @@ typedef enum {
     TOKEN_PLUS,
     TOKEN_STAR,
     TOKEN_EQUALS,
+    TOKEN_BACKSLASH,
     TOKEN_KEYWORD_LET,
     TOKEN_KEYWORD_IN,
 } TokenKind;

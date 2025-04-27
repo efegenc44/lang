@@ -51,6 +51,9 @@ void Token_display(Token *token, Interner *interner) {
         case TOKEN_EQUALS:
             printf("=");
             break;
+        case TOKEN_BACKSLASH:
+            printf("\\");
+            break;
         case TOKEN_KEYWORD_LET:
             printf("let");
             break;
