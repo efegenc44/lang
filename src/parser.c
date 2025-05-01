@@ -11,7 +11,7 @@
          (result).kind != LEX_RESULT_DONE;              \
          (result) = Parser_peek_token(parser))          \
 
-Parser Parser_new(Lexer lexer, ExprArray *expr_array, TypeExprArray *type_expr_array, DeclMap *decl_map) {
+Parser Parser_new(Lexer lexer, ExprArray *expr_array, TypeExprArray *type_expr_array, DeclArray *decl_array) {
     LexResult peek = Lexer_next(&lexer);
 
     return (Parser) {
@@ -19,7 +19,7 @@ Parser Parser_new(Lexer lexer, ExprArray *expr_array, TypeExprArray *type_expr_a
         .peek = peek,
         .expr_array = expr_array,
         .type_expr_array = type_expr_array,
-        .decl_map = decl_map
+        .decl_array = decl_array
     };
 }
 
@@ -94,9 +94,7 @@ ParseResult Parser_finish_bind(Parser *parser) {
     DOParse(Parser_expect_kind(parser, TOKEN_EQUALS));
     BINDParse(expr, Parser_expr(parser));
     Decl bind = Decl_bind(token.as.lexeme_id, expr, token.span);
-    // TODO: We use the same InternId twice, in Decl and in DeclPair
-    // maybe we don't need InternId in Decl.
-    DeclMap_add(parser->decl_map, token.as.lexeme_id, bind);
+    DeclArray_append(parser->decl_array, bind);
 
     return ParseResult_success();
 }
@@ -107,7 +105,7 @@ ParseResult Parser_finish_decl(Parser *parser) {
     DOParse(Parser_expect_kind(parser, TOKEN_COLON));
     BINDParseTE(type_expr, Parser_type_expr(parser));
     Decl decldecl = Decl_decldecl(token.as.lexeme_id, type_expr, token.span);
-    DeclMap_add(parser->decl_map, token.as.lexeme_id, decldecl);
+    DeclArray_append(parser->decl_array, decldecl);
 
     return ParseResult_success();
 }
@@ -116,7 +114,7 @@ ParseResult Parser_finish_type(Parser *parser) {
     Parser_advance_token(parser);
     BINDParseT(token, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
     Decl type = Decl_type(token.as.lexeme_id, token.span);
-    DeclMap_add(parser->decl_map, token.as.lexeme_id, type);
+    DeclArray_append(parser->decl_array, type);
 
     return ParseResult_success();
 }

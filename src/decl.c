@@ -53,41 +53,23 @@ void Decl_display(Decl *decl, ExprArray *expr_array, TypeExprArray *type_expr_ar
     }
 }
 
-DeclMap DeclMap_new() {
-    return (DeclMap) {
-        .pairs = malloc(DECL_MAP_DEFAULT_CAPACITY*sizeof(DeclPair)),
-        .capacity = DECL_MAP_DEFAULT_CAPACITY,
+DeclArray DeclArray_new() {
+    return (DeclArray) {
+        .decls = malloc(DECL_ARRAY_DEFAULT_CAPACITY*sizeof(Decl)),
+        .capacity = DECL_ARRAY_DEFAULT_CAPACITY,
         .length = 0
     };
 }
 
-void DeclMap_free(DeclMap *decl_map) {
-    free(decl_map->pairs);
+void DeclArray_free(DeclArray *decl_array) {
+    free(decl_array->decls);
 }
 
-void DeclMap_add(DeclMap *decl_map, InternId key, Decl decl) {
-    if (decl_map->length == decl_map->capacity) {
-        decl_map->capacity *= 2;
-        decl_map->pairs = realloc(decl_map->pairs, decl_map->capacity*sizeof(DeclPair));
+void DeclArray_append(DeclArray *decl_array, Decl decl) {
+    if (decl_array->length == decl_array->capacity) {
+        decl_array->capacity *= 2;
+        decl_array->decls = realloc(decl_array->decls, decl_array->capacity*sizeof(Decl));
     }
 
-    decl_map->pairs[decl_map->length++] = (DeclPair) {
-        .key = key,
-        .decl = decl
-    };
-}
-
-DeclGetResult DeclMap_get(DeclMap *decl_map, InternId key) {
-    for (size_t i = 0; i < decl_map->length; i++) {
-        if (decl_map->pairs[i].key == key) {
-            return (DeclGetResult) {
-                .success = true,
-                .decl = decl_map->pairs[i].decl
-            };
-        }
-    }
-
-    return (DeclGetResult) {
-        .success = false
-    };
+    decl_array->decls[decl_array->length++] = decl;
 }

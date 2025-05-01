@@ -32,6 +32,7 @@ typedef struct {
 
 typedef struct {
     LocalStack locals;
+    // TODO: Use hash map for declarations
     // HACK: I simply do not want to create
     // the same thing with different name
     LocalStack types;
@@ -72,10 +73,10 @@ FindResult LocalStack_find(LocalStack *stack, InternId id);
 
 Resolver Resolver_new();
 void Resolver_free(Resolver *resolver);
-ResolveResult Resolver_collect_names(Resolver *resolver, DeclMap *decl_map, ExprArray *expr_array, TypeExprArray *type_expr_array);
-ResolveResult Resolver_decls(Resolver *resolver, DeclMap *decl_map, ExprArray *expr_array, TypeExprArray *type_expr_array);
-ResolveResult Resolver_type_expr(Resolver *resolver, DeclMap *decl_map, TypeExprArray *type_expr_array, TypeExprIndex type_expr_index);
-ResolveResult Resolver_expr(Resolver *resolver, DeclMap *decl_map, ExprArray *expr_array, ExprIndex expr_index);
+ResolveResult Resolver_collect_names(Resolver *resolver, DeclArray *decl_array, ExprArray *expr_array, TypeExprArray *type_expr_array);
+ResolveResult Resolver_decls(Resolver *resolver, DeclArray *decl_array, ExprArray *expr_array, TypeExprArray *type_expr_array);
+ResolveResult Resolver_type_expr(Resolver *resolver, DeclArray *decl_array, TypeExprArray *type_expr_array, TypeExprIndex type_expr_index);
+ResolveResult Resolver_expr(Resolver *resolver, DeclArray *decl_array, ExprArray *expr_array, ExprIndex expr_index);
 
 ResolveError ResolveError_ui(InternId identifier, Span span);
 void ResolveError_display(ResolveError *error, Interner *interner, char *source, char *source_name);

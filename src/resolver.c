@@ -69,21 +69,21 @@ void Resolver_free(Resolver *resolver) {
     LocalStack_free(&resolver->defns);
 }
 
-ResolveResult Resolver_collect_names(Resolver *resolver, DeclMap *decl_map, ExprArray *expr_array, TypeExprArray *type_expr_array) {
-    for (size_t i = 0; i < decl_map->length; i++) {
-        DeclPair *pair = &decl_map->pairs[i];
+ResolveResult Resolver_collect_names(Resolver *resolver, DeclArray *decl_array, ExprArray *expr_array, TypeExprArray *type_expr_array) {
+    for (size_t i = 0; i < decl_array->length; i++) {
+        Decl *decl = &decl_array->decls[i];
         // TODO: Check for duplicates
-        switch (pair->decl.kind) {
+        switch (decl->kind) {
             case DECL_BIND:
-                Bind *bind = &pair->decl.as.bind;
+                Bind *bind = &decl->as.bind;
                 LocalStack_push(&resolver->defns, bind->name);
                 break;
             case DECL_DECL:
-                DeclDecl *decldecl = &pair->decl.as.decldecl;
+                DeclDecl *decldecl = &decl->as.decldecl;
                 LocalStack_push(&resolver->defns, decldecl->name);
                 break;
             case DECL_TYPE:
-                Type *type = &pair->decl.as.type;
+                Type *type = &decl->as.type;
                 LocalStack_push(&resolver->types, type->name);
                 break;
         }
@@ -92,18 +92,18 @@ ResolveResult Resolver_collect_names(Resolver *resolver, DeclMap *decl_map, Expr
     return ResolveResult_success();
 }
 
-ResolveResult Resolver_decls(Resolver *resolver, DeclMap *decl_map, ExprArray *expr_array, TypeExprArray *type_expr_array) {
-    DOResolve(Resolver_collect_names(resolver, decl_map, expr_array, type_expr_array));
-    for (size_t i = 0; i < decl_map->length; i++) {
-        DeclPair *pair = &decl_map->pairs[i];
-        switch (pair->decl.kind) {
+ResolveResult Resolver_decls(Resolver *resolver, DeclArray *decl_array, ExprArray *expr_array, TypeExprArray *type_expr_array) {
+    DOResolve(Resolver_collect_names(resolver, decl_array, expr_array, type_expr_array));
+    for (size_t i = 0; i < decl_array->length; i++) {
+        Decl *decl = &decl_array->decls[i];
+        switch (decl->kind) {
             case DECL_BIND:
-                Bind *bind = &pair->decl.as.bind;
-                DOResolve(Resolver_expr(resolver, decl_map, expr_array, bind->expr));
+                Bind *bind = &decl->as.bind;
+                DOResolve(Resolver_expr(resolver, decl_array, expr_array, bind->expr));
                 break;
             case DECL_DECL:
-                DeclDecl *decldecl = &pair->decl.as.decldecl;
-                DOResolve(Resolver_type_expr(resolver, decl_map, type_expr_array, decldecl->type_expr));
+                DeclDecl *decldecl = &decl->as.decldecl;
+                DOResolve(Resolver_type_expr(resolver, decl_array, type_expr_array, decldecl->type_expr));
                 break;
             case DECL_TYPE:
                 break;
@@ -113,7 +113,7 @@ ResolveResult Resolver_decls(Resolver *resolver, DeclMap *decl_map, ExprArray *e
     return ResolveResult_success();
 }
 
-ResolveResult Resolver_type_expr(Resolver *resolver, DeclMap *decl_map, TypeExprArray *type_expr_array, TypeExprIndex type_expr_index) {
+ResolveResult Resolver_type_expr(Resolver *resolver, DeclArray *decl_array, TypeExprArray *type_expr_array, TypeExprIndex type_expr_index) {
     TypeExpr *type_expr = &type_expr_array->type_exprs[type_expr_index];
     switch (type_expr->kind) {
         case TYPE_EXPR_IDENTIFIER:
@@ -123,22 +123,21 @@ ResolveResult Resolver_type_expr(Resolver *resolver, DeclMap *decl_map, TypeExpr
             if (r.success) {
                 ident->bound = Bound_global(intern_id);
             } else {
-                printf("merhab\n");
                 ResolveError error = ResolveError_ui(intern_id, type_expr->sign_span);
                 return ResolveResult_error(error);
             }
             break;
         case TYPE_EXPR_ARROW:
             TypeArrow *arrow = &type_expr->as.type_arrow;
-            DOResolve(Resolver_type_expr(resolver, decl_map, type_expr_array, arrow->from));
-            DOResolve(Resolver_type_expr(resolver, decl_map, type_expr_array, arrow->to));
+            DOResolve(Resolver_type_expr(resolver, decl_array, type_expr_array, arrow->from));
+            DOResolve(Resolver_type_expr(resolver, decl_array, type_expr_array, arrow->to));
             break;
     };
 
     return ResolveResult_success();
 }
 
-ResolveResult Resolver_expr(Resolver *resolver, DeclMap *decl_map, ExprArray *expr_array, ExprIndex expr_index) {
+ResolveResult Resolver_expr(Resolver *resolver, DeclArray *decl_array, ExprArray *expr_array, ExprIndex expr_index) {
     Expr *expr = &expr_array->exprs[expr_index];
     switch (expr->kind) {
         case EXPR_INTEGER:
@@ -163,26 +162,26 @@ ResolveResult Resolver_expr(Resolver *resolver, DeclMap *decl_map, ExprArray *ex
             break;
         case EXPR_BINARY:
             Binary *binary = &expr->as.binary;
-            DOResolve(Resolver_expr(resolver, decl_map, expr_array, binary->lhs));
-            DOResolve(Resolver_expr(resolver, decl_map, expr_array, binary->rhs));
+            DOResolve(Resolver_expr(resolver, decl_array, expr_array, binary->lhs));
+            DOResolve(Resolver_expr(resolver, decl_array, expr_array, binary->rhs));
             break;
         case EXPR_LET:
             Let *let = &expr->as.let;
-            DOResolve(Resolver_expr(resolver, decl_map, expr_array, let->vexpr));
+            DOResolve(Resolver_expr(resolver, decl_array, expr_array, let->vexpr));
             LocalStack_push(&resolver->locals, let->variable);
-                DOResolve(Resolver_expr(resolver, decl_map, expr_array, let->rexpr));
+                DOResolve(Resolver_expr(resolver, decl_array, expr_array, let->rexpr));
             LocalStack_pop(&resolver->locals);
             break;
         case EXPR_LAMBDA:
             Lambda *lambda = &expr->as.lambda;
             LocalStack_push(&resolver->locals, lambda->variable);
-                DOResolve(Resolver_expr(resolver, decl_map, expr_array, lambda->expr));
+                DOResolve(Resolver_expr(resolver, decl_array, expr_array, lambda->expr));
             LocalStack_pop(&resolver->locals);
             break;
         case EXPR_APPLICATION:
             Application *appl = &expr->as.application;
-            DOResolve(Resolver_expr(resolver, decl_map, expr_array, appl->function));
-            DOResolve(Resolver_expr(resolver, decl_map, expr_array, appl->argument));
+            DOResolve(Resolver_expr(resolver, decl_array, expr_array, appl->function));
+            DOResolve(Resolver_expr(resolver, decl_array, expr_array, appl->argument));
             break;
     };
 

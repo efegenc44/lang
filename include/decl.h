@@ -42,37 +42,21 @@ typedef struct {
     Span sign_span;
 } Decl;
 
-// TODO: Use hash map for declarations
-// TODO: Probably do not need anymore
-// we collect names seperately at name resolving
-// so a simple array would be enough
-
-#define DECL_MAP_DEFAULT_CAPACITY 256
+#define DECL_ARRAY_DEFAULT_CAPACITY 256
 
 typedef struct {
-    InternId key;
-    Decl decl;
-} DeclPair;
-
-typedef struct {
-    DeclPair *pairs;
+    Decl *decls;
     size_t capacity;
     size_t length;
-} DeclMap;
-
-typedef struct {
-    bool success;
-    Decl decl;
-} DeclGetResult;
+} DeclArray;
 
 Decl Decl_bind(InternId name, ExprIndex expr, Span span);
 Decl Decl_decldecl(InternId name, TypeExprIndex type_expr, Span span);
 Decl Decl_type(InternId name, Span span);
 void Decl_display(Decl *decl, ExprArray *expr_array, TypeExprArray *type_expr_array, Interner *interner);
 
-DeclMap DeclMap_new();
-void DeclMap_free(DeclMap *decl_map);
-void DeclMap_add(DeclMap *decl_map, InternId key, Decl decl);
-DeclGetResult DeclMap_get(DeclMap *decl_map, InternId key);
+DeclArray DeclArray_new();
+void DeclArray_free(DeclArray *decl_array);
+void DeclArray_append(DeclArray *decl_array, Decl decl);
 
 #endif // DECL_H

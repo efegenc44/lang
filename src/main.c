@@ -17,9 +17,9 @@ void do_stuff(char *input, char *source_name) {
     Interner interner = Interner_new();
     ExprArray expr_array = ExprArray_new();
     TypeExprArray type_expr_array = TypeExprArray_new();
-    DeclMap decl_map = DeclMap_new();
+    DeclArray decl_array = DeclArray_new();
     Lexer lexer = Lexer_new(input, &interner);
-    Parser parser = Parser_new(lexer, &expr_array, &type_expr_array, &decl_map);
+    Parser parser = Parser_new(lexer, &expr_array, &type_expr_array, &decl_array);
     Resolver resolver = Resolver_new();
 
     ParseResult parse_result = Parser_decls(&parser);
@@ -31,7 +31,7 @@ void do_stuff(char *input, char *source_name) {
         case PARSE_RESULT_SUCCESS:
     }
 
-    ResolveResult resolve_result = Resolver_decls(&resolver, &decl_map, &expr_array, &type_expr_array);
+    ResolveResult resolve_result = Resolver_decls(&resolver, &decl_array, &expr_array, &type_expr_array);
     switch (resolve_result.kind) {
         case RESOLVE_RESULT_ERROR:
             ResolveError resolve_error = resolve_result.error;
@@ -40,15 +40,15 @@ void do_stuff(char *input, char *source_name) {
         case RESOLVE_RESULT_SUCCESS:
     }
 
-    for (size_t i = 0; i < decl_map.length; i++) {
-        Decl *decl = &decl_map.pairs[i].decl;
+    for (size_t i = 0; i < decl_array.length; i++) {
+        Decl *decl = &decl_array.decls[i];
         Decl_display(decl, &expr_array, &type_expr_array, &interner);
         printf("\n");
     }
 
 end:
     Resolver_free(&resolver);
-    DeclMap_free(&decl_map);
+    DeclArray_free(&decl_array);
     TypeExprArray_free(&type_expr_array);
     ExprArray_free(&expr_array);
     Interner_free(&interner);

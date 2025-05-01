@@ -57,7 +57,7 @@ typedef struct {
     LexResult peek;
     ExprArray *expr_array;
     TypeExprArray *type_expr_array;
-    DeclMap *decl_map;
+    DeclArray *decl_array;
 } Parser;
 
 typedef enum {
@@ -93,7 +93,7 @@ typedef struct {
     ParseResultData as;
 } ParseResult;
 
-Parser Parser_new(Lexer lexer, ExprArray *expr_array, TypeExprArray *type_expr_array, DeclMap *decl_map);
+Parser Parser_new(Lexer lexer, ExprArray *expr_array, TypeExprArray *type_expr_array, DeclArray *decl_array);
 ParseResult Parser_type_expr(Parser *parser);
 ParseResult Parser_type_arrow(Parser *parser);
 ParseResult Parser_type_primary(Parser *parser);
