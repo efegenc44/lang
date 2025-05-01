@@ -56,10 +56,10 @@ typedef struct {
 
 Resolver Resolver_new();
 void Resolver_free(Resolver *resolver);
-ResolveResult Resolver_collect_names(Resolver *resolver, DeclArray *decl_array, ExprArray *expr_array, TypeExprArray *type_expr_array);
-ResolveResult Resolver_decls(Resolver *resolver, DeclArray *decl_array, ExprArray *expr_array, TypeExprArray *type_expr_array);
-ResolveResult Resolver_type_expr(Resolver *resolver, DeclArray *decl_array, TypeExprArray *type_expr_array, TypeExprIndex type_expr_index);
-ResolveResult Resolver_expr(Resolver *resolver, DeclArray *decl_array, ExprArray *expr_array, ExprIndex expr_index);
+ResolveResult Resolver_collect_names(Resolver *resolver, OffsetArray *decls, Arena *arena);
+ResolveResult Resolver_decls(Resolver *resolver, OffsetArray *decls, Arena *arena);
+ResolveResult Resolver_type_expr(Resolver *resolver, OffsetArray *decls, Arena *arena, TypeExprIndex type_expr_index);
+ResolveResult Resolver_expr(Resolver *resolver, OffsetArray *decls, Arena *arena, ExprIndex expr_index);
 
 ResolveError ResolveError_ui(InternId identifier, Span span);
 void ResolveError_display(ResolveError *error, Interner *interner, char *source, char *source_name);

@@ -4,6 +4,7 @@
 
 #include "resolver.h"
 #include "bound.h"
+#include "arena.h"
 
 Resolver Resolver_new() {
     return (Resolver) {
@@ -19,9 +20,9 @@ void Resolver_free(Resolver *resolver) {
     StringArray_new(&resolver->defns);
 }
 
-ResolveResult Resolver_collect_names(Resolver *resolver, DeclArray *decl_array, ExprArray *expr_array, TypeExprArray *type_expr_array) {
-    for (size_t i = 0; i < decl_array->length; i++) {
-        Decl *decl = &decl_array->decls[i];
+ResolveResult Resolver_collect_names(Resolver *resolver, OffsetArray *decls, Arena *arena) {
+    for (size_t i = 0; i < decls->length; i++) {
+        Decl *decl = Arena_get(Decl, arena, decls->offsets[i]);
         // TODO: Check for duplicates
         switch (decl->kind) {
             case DECL_BIND:
@@ -42,18 +43,18 @@ ResolveResult Resolver_collect_names(Resolver *resolver, DeclArray *decl_array, 
     return ResolveResult_success();
 }
 
-ResolveResult Resolver_decls(Resolver *resolver, DeclArray *decl_array, ExprArray *expr_array, TypeExprArray *type_expr_array) {
-    DOResolve(Resolver_collect_names(resolver, decl_array, expr_array, type_expr_array));
-    for (size_t i = 0; i < decl_array->length; i++) {
-        Decl *decl = &decl_array->decls[i];
+ResolveResult Resolver_decls(Resolver *resolver, OffsetArray *decls, Arena *arena) {
+    DOResolve(Resolver_collect_names(resolver, decls, arena));
+    for (size_t i = 0; i < decls->length; i++) {
+        Decl *decl = Arena_get(Decl, arena, decls->offsets[i]);
         switch (decl->kind) {
             case DECL_BIND:
                 Bind *bind = &decl->as.bind;
-                DOResolve(Resolver_expr(resolver, decl_array, expr_array, bind->expr));
+                DOResolve(Resolver_expr(resolver, decls, arena, bind->expr));
                 break;
             case DECL_DECL:
                 DeclDecl *decldecl = &decl->as.decldecl;
-                DOResolve(Resolver_type_expr(resolver, decl_array, type_expr_array, decldecl->type_expr));
+                DOResolve(Resolver_type_expr(resolver, decls, arena, decldecl->type_expr));
                 break;
             case DECL_TYPE:
                 break;
@@ -63,8 +64,8 @@ ResolveResult Resolver_decls(Resolver *resolver, DeclArray *decl_array, ExprArra
     return ResolveResult_success();
 }
 
-ResolveResult Resolver_type_expr(Resolver *resolver, DeclArray *decl_array, TypeExprArray *type_expr_array, TypeExprIndex type_expr_index) {
-    TypeExpr *type_expr = &type_expr_array->type_exprs[type_expr_index];
+ResolveResult Resolver_type_expr(Resolver *resolver, OffsetArray *decls, Arena *arena, TypeExprIndex type_expr_index) {
+    TypeExpr *type_expr = Arena_get(TypeExpr, arena, type_expr_index);
     switch (type_expr->kind) {
         case TYPE_EXPR_IDENTIFIER:
             TypeIdentifier *ident = &type_expr->as.type_ident;
@@ -79,16 +80,16 @@ ResolveResult Resolver_type_expr(Resolver *resolver, DeclArray *decl_array, Type
             break;
         case TYPE_EXPR_ARROW:
             TypeArrow *arrow = &type_expr->as.type_arrow;
-            DOResolve(Resolver_type_expr(resolver, decl_array, type_expr_array, arrow->from));
-            DOResolve(Resolver_type_expr(resolver, decl_array, type_expr_array, arrow->to));
+            DOResolve(Resolver_type_expr(resolver, decls, arena, arrow->from));
+            DOResolve(Resolver_type_expr(resolver, decls, arena, arrow->to));
             break;
     };
 
     return ResolveResult_success();
 }
 
-ResolveResult Resolver_expr(Resolver *resolver, DeclArray *decl_array, ExprArray *expr_array, ExprIndex expr_index) {
-    Expr *expr = &expr_array->exprs[expr_index];
+ResolveResult Resolver_expr(Resolver *resolver, OffsetArray *decls, Arena *arena, ExprIndex expr_index) {
+    Expr *expr = Arena_get(Expr, arena, expr_index);
     switch (expr->kind) {
         case EXPR_INTEGER:
             break;
@@ -112,26 +113,26 @@ ResolveResult Resolver_expr(Resolver *resolver, DeclArray *decl_array, ExprArray
             break;
         case EXPR_BINARY:
             Binary *binary = &expr->as.binary;
-            DOResolve(Resolver_expr(resolver, decl_array, expr_array, binary->lhs));
-            DOResolve(Resolver_expr(resolver, decl_array, expr_array, binary->rhs));
+            DOResolve(Resolver_expr(resolver, decls, arena, binary->lhs));
+            DOResolve(Resolver_expr(resolver, decls, arena, binary->rhs));
             break;
         case EXPR_LET:
             Let *let = &expr->as.let;
-            DOResolve(Resolver_expr(resolver, decl_array, expr_array, let->vexpr));
+            DOResolve(Resolver_expr(resolver, decls, arena, let->vexpr));
             StringArray_append(&resolver->locals, let->variable);
-                DOResolve(Resolver_expr(resolver, decl_array, expr_array, let->rexpr));
+                DOResolve(Resolver_expr(resolver, decls, arena, let->rexpr));
             StringArray_pop(&resolver->locals);
             break;
         case EXPR_LAMBDA:
             Lambda *lambda = &expr->as.lambda;
             StringArray_append(&resolver->locals, lambda->variable);
-                DOResolve(Resolver_expr(resolver, decl_array, expr_array, lambda->expr));
+                DOResolve(Resolver_expr(resolver, decls, arena, lambda->expr));
             StringArray_pop(&resolver->locals);
             break;
         case EXPR_APPLICATION:
             Application *appl = &expr->as.application;
-            DOResolve(Resolver_expr(resolver, decl_array, expr_array, appl->function));
-            DOResolve(Resolver_expr(resolver, decl_array, expr_array, appl->argument));
+            DOResolve(Resolver_expr(resolver, decls, arena, appl->function));
+            DOResolve(Resolver_expr(resolver, decls, arena, appl->argument));
             break;
     };
 

@@ -7,6 +7,7 @@
 #include "span.h"
 #include "interner.h"
 #include "bound.h"
+#include "arena.h"
 
 typedef size_t ExprIndex;
 
@@ -91,8 +92,7 @@ Expr Expr_binary(ExprIndex lhs, BOp bop, ExprIndex rhs, Span span);
 Expr Expr_let(InternId variable, ExprIndex vexpr, ExprIndex rexpr, Span span);
 Expr Expr_lambda(InternId variable, ExprIndex expr, Span span);
 Expr Expr_application(ExprIndex function, ExprIndex argument, Span span);
-void Expr_display(Expr *expr, ExprArray *expr_array, Interner *interner, size_t depth);
-Expr *Expr_box(Expr expr);
+void Expr_display(Expr *expr, Arena *arena, Interner *interner, size_t depth);
 
 ExprArray ExprArray_new();
 void ExprArray_free(ExprArray *expr_array);

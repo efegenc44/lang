@@ -11,15 +11,14 @@
          (result).kind != LEX_RESULT_DONE;              \
          (result) = Parser_peek_token(parser))          \
 
-Parser Parser_new(Lexer lexer, ExprArray *expr_array, TypeExprArray *type_expr_array, DeclArray *decl_array) {
+Parser Parser_new(Lexer lexer, Arena *arena) {
     LexResult peek = Lexer_next(&lexer);
 
     return (Parser) {
         .lexer = lexer,
         .peek = peek,
-        .expr_array = expr_array,
-        .type_expr_array = type_expr_array,
-        .decl_array = decl_array
+        .decls = OffsetArray_new(),
+        .arena = arena
     };
 }
 
@@ -35,7 +34,7 @@ ParseResult Parser_type_arrow(Parser *parser) {
         Parser_advance_token(parser);
         BINDParseTE(to, Parser_type_arrow(parser));
         TypeExpr type_expr = TypeExpr_arrow(from, to, token.span);
-        from = TypeExprArray_append(parser->type_expr_array, type_expr);
+        from = Arena_put(parser->arena, type_expr);
     }
 
     return ParseResult_success_type_expr_index(from);
@@ -47,7 +46,7 @@ ParseResult Parser_type_primary(Parser *parser) {
         case TOKEN_IDENTIFIER:
             TypeExpr type_expr_ident = TypeExpr_identifier(token.as.lexeme_id, token.span);
             return ParseResult_success_expr_index(
-                TypeExprArray_append(parser->type_expr_array, type_expr_ident)
+                Arena_put(parser->arena, type_expr_ident)
             );
         case TOKEN_LEFT_PAREN:
             return Parser_finish_paren_type(parser);
@@ -70,7 +69,7 @@ ParseResult Parser_decls(Parser *parser) {
         DOParse(Parser_decl(parser));
     }
 
-    return ParseResult_success();
+    return ParseResult_success_decls(parser->decls);
 }
 
 ParseResult Parser_decl(Parser *parser) {
@@ -94,7 +93,8 @@ ParseResult Parser_finish_bind(Parser *parser) {
     DOParse(Parser_expect_kind(parser, TOKEN_EQUALS));
     BINDParse(expr, Parser_expr(parser));
     Decl bind = Decl_bind(token.as.lexeme_id, expr, token.span);
-    DeclArray_append(parser->decl_array, bind);
+    Offset offset = Arena_put(parser->arena, bind);
+    OffsetArray_append(&parser->decls, offset);
 
     return ParseResult_success();
 }
@@ -105,7 +105,8 @@ ParseResult Parser_finish_decl(Parser *parser) {
     DOParse(Parser_expect_kind(parser, TOKEN_COLON));
     BINDParseTE(type_expr, Parser_type_expr(parser));
     Decl decldecl = Decl_decldecl(token.as.lexeme_id, type_expr, token.span);
-    DeclArray_append(parser->decl_array, decldecl);
+    Offset offset = Arena_put(parser->arena, decldecl);
+    OffsetArray_append(&parser->decls, offset);
 
     return ParseResult_success();
 }
@@ -114,7 +115,8 @@ ParseResult Parser_finish_type(Parser *parser) {
     Parser_advance_token(parser);
     BINDParseT(token, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
     Decl type = Decl_type(token.as.lexeme_id, token.span);
-    DeclArray_append(parser->decl_array, type);
+    Offset offset = Arena_put(parser->arena, type);
+    OffsetArray_append(&parser->decls, offset);
 
     return ParseResult_success();
 }
@@ -145,7 +147,8 @@ ParseResult Parser_binary(Parser *parser, size_t min_prec) {
                 Parser_advance_token(parser);
                 size_t prec = PrecTable[bop] + (AssocTable[bop] != ASSOC_RIGHT);
                 BINDParse(rhs, Parser_binary(parser, prec));
-                lhs = ExprArray_append(parser->expr_array, Expr_binary(lhs, bop, rhs, token.span));
+                Expr binary = Expr_binary(lhs, bop, rhs, token.span);
+                lhs = Arena_put(parser->arena, binary);
                 if (AssocTable[bop] == ASSOC_NONE) goto end;
                 break;
             default:
@@ -167,7 +170,8 @@ ParseResult Parser_application(Parser *parser) {
             case TOKEN_IDENTIFIER:
             case TOKEN_LEFT_PAREN:
                 BINDParse(argument, Parser_primary(parser));
-                function = ExprArray_append(parser->expr_array, Expr_application(function, argument, token.span));
+                Expr application = Expr_application(function, argument, token.span);
+                function = Arena_put(parser->arena, application);
                 break;
             default:
                 goto end;
@@ -183,12 +187,12 @@ ParseResult Parser_primary(Parser *parser) {
         case TOKEN_INTEGER:
             Expr expr_int = Expr_integer(token.as.integer, token.span);
             return ParseResult_success_expr_index(
-                ExprArray_append(parser->expr_array, expr_int)
+                Arena_put(parser->arena, expr_int)
             );
         case TOKEN_IDENTIFIER:
             Expr expr_ident = Expr_identifier(token.as.lexeme_id, token.span);
             return ParseResult_success_expr_index(
-                ExprArray_append(parser->expr_array, expr_ident)
+                Arena_put(parser->arena, expr_ident)
             );
         case TOKEN_LEFT_PAREN:
             return Parser_finish_paren(parser);
@@ -213,7 +217,7 @@ ParseResult Parser_finish_let(Parser *parser) {
     DOParse(Parser_expect_kind(parser, TOKEN_KEYWORD_IN));
     BINDParse(rexpr, Parser_expr(parser));
     Expr let = Expr_let(variable.as.lexeme_id, vexpr, rexpr, variable.span);
-    ExprIndex index = ExprArray_append(parser->expr_array, let);
+    ExprIndex index = Arena_put(parser->arena, let);
 
     return ParseResult_success_expr_index(index);
 }
@@ -223,7 +227,7 @@ ParseResult Parser_finish_lambda(Parser *parser) {
     BINDParseT(variable, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
     BINDParse(expr, Parser_expr(parser));
     Expr lambda = Expr_lambda(variable.as.lexeme_id, expr, variable.span);
-    ExprIndex index = ExprArray_append(parser->expr_array, lambda);
+    ExprIndex index = Arena_put(parser->arena, lambda);
 
     return ParseResult_success_expr_index(index);
 }
@@ -306,6 +310,13 @@ ParseResult ParseResult_success_expr_index(ExprIndex expr_index) {
     return (ParseResult) {
         .kind = PARSE_RESULT_SUCCESS,
         .as.expr_index = expr_index
+    };
+}
+
+ParseResult ParseResult_success_decls(OffsetArray decls) {
+    return (ParseResult) {
+        .kind = PARSE_RESULT_SUCCESS,
+        .as.decls = decls
     };
 }
 

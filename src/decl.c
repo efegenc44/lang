@@ -2,6 +2,7 @@
 
 #include "decl.h"
 #include "interner.h"
+#include "arena.h"
 
 Decl Decl_bind(InternId name, ExprIndex expr, Span span) {
     return (Decl) {
@@ -35,17 +36,17 @@ Decl Decl_type(InternId name, Span span) {
     };
 }
 
-void Decl_display(Decl *decl, ExprArray *expr_array, TypeExprArray *type_expr_array, Interner *interner) {
+void Decl_display(Decl *decl, Arena *arena, Interner *interner) {
     switch (decl->kind) {
         case DECL_BIND:
             printf("Bind: %s\n", Interner_get(interner, decl->as.bind.name));
-            Expr expr = ExprArray_get(expr_array, decl->as.bind.expr);
-            Expr_display(&expr, expr_array, interner, 1);
+            Expr *expr = Arena_get(Expr, arena, decl->as.bind.expr);
+            Expr_display(expr, arena, interner, 1);
             break;
         case DECL_DECL:
             printf("Decl: %s\n", Interner_get(interner, decl->as.decldecl.name));
-            TypeExpr type_expr = TypeExprArray_get(type_expr_array, decl->as.decldecl.type_expr);
-            TypeExpr_display(&type_expr, type_expr_array, interner, 1);
+            TypeExpr *type_expr = Arena_get(TypeExpr, arena, decl->as.decldecl.type_expr);
+            TypeExpr_display(type_expr, arena, interner, 1);
             break;
         case DECL_TYPE:
             printf("Type: %s\n", Interner_get(interner, decl->as.type.name));

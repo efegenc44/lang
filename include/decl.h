@@ -7,6 +7,7 @@
 #include "interner.h"
 #include "span.h"
 #include "type_expr.h"
+#include "arena.h"
 
 // TODO: Rename decl to stmt (statement) or something
 
@@ -53,7 +54,7 @@ typedef struct {
 Decl Decl_bind(InternId name, ExprIndex expr, Span span);
 Decl Decl_decldecl(InternId name, TypeExprIndex type_expr, Span span);
 Decl Decl_type(InternId name, Span span);
-void Decl_display(Decl *decl, ExprArray *expr_array, TypeExprArray *type_expr_array, Interner *interner);
+void Decl_display(Decl *decl, Arena *arena, Interner *interner);
 
 DeclArray DeclArray_new();
 void DeclArray_free(DeclArray *decl_array);

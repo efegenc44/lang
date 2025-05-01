@@ -9,17 +9,11 @@
 #include "interner.h"
 #include "resolver.h"
 
-// TODO: Try to find a solution to passing ..._arrays and interner everywhere
-// TODO: Try to find a solution for dynamic array code duplication
-// some arrays are internally same with different name, maybe can unify those
-
 void do_stuff(char *input, char *source_name) {
     Interner interner = Interner_new();
-    ExprArray expr_array = ExprArray_new();
-    TypeExprArray type_expr_array = TypeExprArray_new();
-    DeclArray decl_array = DeclArray_new();
+    Arena arena = Arena_new();
     Lexer lexer = Lexer_new(input, &interner);
-    Parser parser = Parser_new(lexer, &expr_array, &type_expr_array, &decl_array);
+    Parser parser = Parser_new(lexer, &arena);
     Resolver resolver = Resolver_new();
 
     ParseResult parse_result = Parser_decls(&parser);
@@ -30,8 +24,9 @@ void do_stuff(char *input, char *source_name) {
             goto end;
         case PARSE_RESULT_SUCCESS:
     }
+    OffsetArray decls = parse_result.as.decls;
 
-    ResolveResult resolve_result = Resolver_decls(&resolver, &decl_array, &expr_array, &type_expr_array);
+    ResolveResult resolve_result = Resolver_decls(&resolver, &decls, &arena);
     switch (resolve_result.kind) {
         case RESOLVE_RESULT_ERROR:
             ResolveError resolve_error = resolve_result.error;
@@ -40,17 +35,16 @@ void do_stuff(char *input, char *source_name) {
         case RESOLVE_RESULT_SUCCESS:
     }
 
-    for (size_t i = 0; i < decl_array.length; i++) {
-        Decl *decl = &decl_array.decls[i];
-        Decl_display(decl, &expr_array, &type_expr_array, &interner);
+    for (size_t i = 0; i < decls.length; i++) {
+        Decl *decl = Arena_get(Decl, &arena, decls.offsets[i]);
+        Decl_display(decl, &arena, &interner);
         printf("\n");
     }
 
 end:
     Resolver_free(&resolver);
-    DeclArray_free(&decl_array);
-    TypeExprArray_free(&type_expr_array);
-    ExprArray_free(&expr_array);
+    OffsetArray_free(&decls);
+    Arena_free(&arena);
     Interner_free(&interner);
 }
 

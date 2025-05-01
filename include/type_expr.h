@@ -6,6 +6,7 @@
 #include "span.h"
 #include "interner.h"
 #include "bound.h"
+#include "arena.h"
 
 typedef size_t TypeExprIndex;
 
@@ -45,7 +46,7 @@ typedef struct {
 
 TypeExpr TypeExpr_identifier(InternId identifier_id, Span span);
 TypeExpr TypeExpr_arrow(TypeExprIndex from, TypeExprIndex to, Span span);
-void TypeExpr_display(TypeExpr *type_expr, TypeExprArray *type_expr_array, Interner *interner, size_t depth);
+void TypeExpr_display(TypeExpr *type_expr, Arena *arena, Interner *interner, size_t depth);
 
 TypeExprArray TypeExprArray_new();
 void TypeExprArray_free(TypeExprArray *type_expr_array);

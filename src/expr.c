@@ -89,7 +89,7 @@ Expr Expr_application(ExprIndex function, ExprIndex argument, Span span) {
     };
 }
 
-void Expr_display(Expr *expr, ExprArray *expr_array, Interner *interner, size_t depth) {
+void Expr_display(Expr *expr, Arena *arena, Interner *interner, size_t depth) {
     for (size_t i = 0; i < depth*2; i++) printf(" ");
     switch (expr->kind) {
         case EXPR_INTEGER:
@@ -118,48 +118,41 @@ void Expr_display(Expr *expr, ExprArray *expr_array, Interner *interner, size_t 
             printf(" | ");
             Span_display_start(&expr->sign_span);
             printf("\n");
-            Expr lhs = ExprArray_get(expr_array, expr->as.binary.lhs);
-            Expr rhs = ExprArray_get(expr_array, expr->as.binary.rhs);
-            Expr_display(&lhs, expr_array, interner, depth + 1);
-            Expr_display(&rhs, expr_array, interner, depth + 1);
+            Expr *lhs = Arena_get(Expr, arena, expr->as.binary.lhs);
+            Expr *rhs = Arena_get(Expr, arena, expr->as.binary.rhs);
+            Expr_display(lhs, arena, interner, depth + 1);
+            Expr_display(rhs, arena, interner, depth + 1);
             break;
         case EXPR_LET:
             printf("let %s", Interner_get(interner, expr->as.let.variable));
             printf(" | ");
             Span_display_start(&expr->sign_span);
             printf("\n");
-            Expr vexpr = ExprArray_get(expr_array, expr->as.let.vexpr);
-            Expr rexpr = ExprArray_get(expr_array, expr->as.let.rexpr);
-            Expr_display(&vexpr, expr_array, interner, depth + 1);
+            Expr *vexpr = Arena_get(Expr, arena, expr->as.let.vexpr);
+            Expr *rexpr = Arena_get(Expr, arena, expr->as.let.rexpr);
+            Expr_display(vexpr, arena, interner, depth + 1);
             printf("\n");
-            Expr_display(&rexpr, expr_array, interner, depth + 1);
+            Expr_display(rexpr, arena, interner, depth + 1);
             break;
         case EXPR_LAMBDA:
             printf("\\%s", Interner_get(interner, expr->as.lambda.variable));
             printf(" | ");
             Span_display_start(&expr->sign_span);
             printf("\n");
-            Expr lexpr = ExprArray_get(expr_array, expr->as.lambda.expr);
-            Expr_display(&lexpr, expr_array, interner, depth + 1);
+            Expr *lexpr = Arena_get(Expr, arena, expr->as.lambda.expr);
+            Expr_display(lexpr, arena, interner, depth + 1);
             break;
         case EXPR_APPLICATION:
             printf("Application");
             printf(" | ");
             Span_display_start(&expr->sign_span);
             printf("\n");
-            Expr function = ExprArray_get(expr_array, expr->as.application.function);
-            Expr_display(&function, expr_array, interner, depth + 1);
-            Expr argument = ExprArray_get(expr_array, expr->as.application.argument);
-            Expr_display(&argument, expr_array, interner, depth + 1);
+            Expr *function = Arena_get(Expr, arena, expr->as.application.function);
+            Expr_display(function, arena, interner, depth + 1);
+            Expr *argument = Arena_get(Expr, arena, expr->as.application.argument);
+            Expr_display(argument, arena, interner, depth + 1);
             break;
     }
-}
-
-Expr *Expr_box(Expr expr) {
-    Expr *ptr = malloc(sizeof(Expr));
-    *ptr = expr;
-
-    return ptr;
 }
 
 ExprArray ExprArray_new() {

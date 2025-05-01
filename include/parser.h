@@ -5,6 +5,7 @@
 #include "expr.h"
 #include "type_expr.h"
 #include "decl.h"
+#include "arena.h"
 
 #define CHECK_LEX_ERROR(result)                                   \
     if ((result).kind == LEX_RESULT_ERROR) {                      \
@@ -55,9 +56,8 @@
 typedef struct {
     Lexer lexer;
     LexResult peek;
-    ExprArray *expr_array;
-    TypeExprArray *type_expr_array;
-    DeclArray *decl_array;
+    OffsetArray decls;
+    Arena *arena;
 } Parser;
 
 typedef enum {
@@ -85,6 +85,7 @@ typedef union {
     ExprIndex expr_index;
     TypeExprIndex type_expr_index;
     Token token;
+    OffsetArray decls;
     ParseError error;
 } ParseResultData;
 
@@ -93,7 +94,7 @@ typedef struct {
     ParseResultData as;
 } ParseResult;
 
-Parser Parser_new(Lexer lexer, ExprArray *expr_array, TypeExprArray *type_expr_array, DeclArray *decl_array);
+Parser Parser_new(Lexer lexer, Arena *arena);
 ParseResult Parser_type_expr(Parser *parser);
 ParseResult Parser_type_arrow(Parser *parser);
 ParseResult Parser_type_primary(Parser *parser);
@@ -121,6 +122,7 @@ void ParseError_display(ParseError *error, Interner *interner, char *source, cha
 
 ParseResult ParseResult_success_type_expr_index(TypeExprIndex type_expr_index);
 ParseResult ParseResult_success_expr_index(ExprIndex expr_index);
+ParseResult ParseResult_success_decls(OffsetArray array);
 ParseResult ParseResult_success_token(Token token);
 ParseResult ParseResult_success();
 ParseResult ParseResult_error(ParseError error);

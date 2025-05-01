@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "type_expr.h"
+#include "arena.h"
 
 TypeExpr TypeExpr_identifier(InternId identifier_id, Span span) {
     return (TypeExpr) {
@@ -25,7 +26,7 @@ TypeExpr TypeExpr_arrow(TypeExprIndex from, TypeExprIndex to, Span span) {
     };
 }
 
-void TypeExpr_display(TypeExpr *type_expr, TypeExprArray *type_expr_array, Interner *interner, size_t depth) {
+void TypeExpr_display(TypeExpr *type_expr, Arena *arena, Interner *interner, size_t depth) {
     for (size_t i = 0; i < depth*2; i++) printf(" ");
     switch (type_expr->kind) {
         case TYPE_EXPR_IDENTIFIER:
@@ -36,10 +37,10 @@ void TypeExpr_display(TypeExpr *type_expr, TypeExprArray *type_expr_array, Inter
             break;
         case TYPE_EXPR_ARROW:
             printf("->\n");
-            TypeExpr from = TypeExprArray_get(type_expr_array, type_expr->as.type_arrow.from);
-            TypeExpr to = TypeExprArray_get(type_expr_array, type_expr->as.type_arrow.to);
-            TypeExpr_display(&from, type_expr_array, interner, depth + 1);
-            TypeExpr_display(&to, type_expr_array, interner, depth + 1);
+            TypeExpr *from = Arena_get(TypeExpr, arena, type_expr->as.type_arrow.from);
+            TypeExpr *to = Arena_get(TypeExpr, arena, type_expr->as.type_arrow.to);
+            TypeExpr_display(from, arena, interner, depth + 1);
+            TypeExpr_display(to, arena, interner, depth + 1);
             break;
     }
 }
