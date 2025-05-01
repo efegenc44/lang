@@ -37,3 +37,27 @@ InternId Interner_register(Interner *interner, char *string) {
 char *Interner_get(Interner *interner, InternId id) {
     return interner->strings[id];
 }
+
+StringArray StringArray_new() {
+    return (StringArray) {
+        .strings = malloc(STRING_ARRAY_DEFAULT_CAPACITY*sizeof(InternId)),
+        .capacity = STRING_ARRAY_DEFAULT_CAPACITY,
+        .length = 0
+    };
+}
+
+void StringArray_free(StringArray *array) {
+    free(array->strings);
+}
+
+void StringArray_append(StringArray *array, InternId string) {
+    if (array->capacity == array->length) {
+        array->capacity *= 2;
+        array->strings = realloc(array->strings, array->capacity*sizeof(char *));
+    }
+    array->strings[array->length++] = string;
+}
+
+InternId StringArray_pop(StringArray *array) {
+    return array->strings[array->length-- - 1];
+}

@@ -5,68 +5,18 @@
 #include "resolver.h"
 #include "bound.h"
 
-LocalStack LocalStack_new() {
-    return (LocalStack) {
-        .names = malloc(LOCAL_STACK_DEFAULT_CAPACITY*sizeof(InternId)),
-        .capacity = LOCAL_STACK_DEFAULT_CAPACITY,
-        .length = 0
-    };
-}
-
-void LocalStack_free(LocalStack *stack) {
-    free(stack->names);
-}
-
-void LocalStack_push(LocalStack *stack, InternId id) {
-    if (stack->capacity == stack->length) {
-        stack->capacity *= 2;
-        stack->names = realloc(stack->names, stack->capacity*(sizeof(InternId)));
-    }
-    stack->names[stack->length++] = id;
-}
-
-InternId LocalStack_pop(LocalStack *stack) {
-    return stack->names[stack->length-- - 1];
-}
-
-void LocalStack_truncate(LocalStack *stack, size_t count) {
-    stack->length -= count;
-}
-
-FindResult LocalStack_find(LocalStack *stack, InternId id) {
-    if (stack->length == 0) {
-        return (FindResult) {
-            .success = false
-        };
-    }
-
-    // de Bruijn indicies
-    for (size_t i = 0; i < stack->length; i++) {
-        if (id == stack->names[stack->length - 1 - i]) {
-            return (FindResult) {
-                .success = true,
-                .id = i
-            };
-        }
-    }
-
-    return (FindResult) {
-        .success = false,
-    };
-}
-
 Resolver Resolver_new() {
     return (Resolver) {
-        .locals = LocalStack_new(),
-        .types = LocalStack_new(),
-        .defns = LocalStack_new(),
+        .locals = StringArray_new(),
+        .types = StringArray_new(),
+        .defns = StringArray_new(),
     };
 }
 
 void Resolver_free(Resolver *resolver) {
-    LocalStack_free(&resolver->locals);
-    LocalStack_free(&resolver->types);
-    LocalStack_free(&resolver->defns);
+    StringArray_new(&resolver->locals);
+    StringArray_new(&resolver->types);
+    StringArray_new(&resolver->defns);
 }
 
 ResolveResult Resolver_collect_names(Resolver *resolver, DeclArray *decl_array, ExprArray *expr_array, TypeExprArray *type_expr_array) {
@@ -76,15 +26,15 @@ ResolveResult Resolver_collect_names(Resolver *resolver, DeclArray *decl_array, 
         switch (decl->kind) {
             case DECL_BIND:
                 Bind *bind = &decl->as.bind;
-                LocalStack_push(&resolver->defns, bind->name);
+                StringArray_append(&resolver->defns, bind->name);
                 break;
             case DECL_DECL:
                 DeclDecl *decldecl = &decl->as.decldecl;
-                LocalStack_push(&resolver->defns, decldecl->name);
+                StringArray_append(&resolver->defns, decldecl->name);
                 break;
             case DECL_TYPE:
                 Type *type = &decl->as.type;
-                LocalStack_push(&resolver->types, type->name);
+                StringArray_append(&resolver->types, type->name);
                 break;
         }
     }
@@ -119,7 +69,7 @@ ResolveResult Resolver_type_expr(Resolver *resolver, DeclArray *decl_array, Type
         case TYPE_EXPR_IDENTIFIER:
             TypeIdentifier *ident = &type_expr->as.type_ident;
             InternId intern_id = ident->identifier_id;
-            FindResult r = LocalStack_find(&resolver->types, intern_id);
+            FindResult r = Resolver_local(&resolver->types, intern_id);
             if (r.success) {
                 ident->bound = Bound_global(intern_id);
             } else {
@@ -146,12 +96,12 @@ ResolveResult Resolver_expr(Resolver *resolver, DeclArray *decl_array, ExprArray
             Identifier *ident = &expr->as.identifier;
             InternId intern_id = ident->identifier_id;
             // Look in local scope
-            FindResult result = LocalStack_find(&resolver->locals, intern_id);
+            FindResult result = Resolver_local(&resolver->locals, intern_id);
             if (result.success) {
                 ident->bound = Bound_local(result.id);
             } else {
                 // Look in global scope
-                FindResult r = LocalStack_find(&resolver->defns, intern_id);
+                FindResult r = Resolver_local(&resolver->defns, intern_id);
                 if (r.success) {
                     ident->bound = Bound_global(intern_id);
                 } else {
@@ -168,15 +118,15 @@ ResolveResult Resolver_expr(Resolver *resolver, DeclArray *decl_array, ExprArray
         case EXPR_LET:
             Let *let = &expr->as.let;
             DOResolve(Resolver_expr(resolver, decl_array, expr_array, let->vexpr));
-            LocalStack_push(&resolver->locals, let->variable);
+            StringArray_append(&resolver->locals, let->variable);
                 DOResolve(Resolver_expr(resolver, decl_array, expr_array, let->rexpr));
-            LocalStack_pop(&resolver->locals);
+            StringArray_pop(&resolver->locals);
             break;
         case EXPR_LAMBDA:
             Lambda *lambda = &expr->as.lambda;
-            LocalStack_push(&resolver->locals, lambda->variable);
+            StringArray_append(&resolver->locals, lambda->variable);
                 DOResolve(Resolver_expr(resolver, decl_array, expr_array, lambda->expr));
-            LocalStack_pop(&resolver->locals);
+            StringArray_pop(&resolver->locals);
             break;
         case EXPR_APPLICATION:
             Application *appl = &expr->as.application;
@@ -222,5 +172,21 @@ ResolveResult ResolveResult_error(ResolveError error) {
     return (ResolveResult) {
         .kind = RESOLVE_RESULT_ERROR,
         .error = error,
+    };
+}
+
+FindResult Resolver_local(StringArray *array, InternId id) {
+    // de Bruijn indicies
+    for (size_t i = 0; i < array->length; i++) {
+        if (id == array->strings[array->length - 1 - i]) {
+            return (FindResult) {
+                .success = true,
+                .id = i
+            };
+        }
+    }
+
+    return (FindResult) {
+        .success = false,
     };
 }
