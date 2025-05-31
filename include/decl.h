@@ -29,6 +29,7 @@ typedef struct {
 
 typedef struct {
     InternId name;
+    Offset type_expr;
 } Type;
 
 typedef struct {
@@ -53,7 +54,7 @@ typedef struct {
 
 Decl Decl_bind(InternId name, ExprIndex expr, Span span);
 Decl Decl_decldecl(InternId name, TypeExprIndex type_expr, Span span);
-Decl Decl_type(InternId name, Span span);
+Decl Decl_type(InternId name, Offset type_expr, Span span);
 void Decl_display(Decl *decl, Arena *arena, Interner *interner);
 
 DeclArray DeclArray_new();

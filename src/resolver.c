@@ -15,9 +15,9 @@ Resolver Resolver_new() {
 }
 
 void Resolver_free(Resolver *resolver) {
-    StringArray_new(&resolver->locals);
-    StringArray_new(&resolver->types);
-    StringArray_new(&resolver->defns);
+    StringArray_free(&resolver->locals);
+    StringArray_free(&resolver->types);
+    StringArray_free(&resolver->defns);
 }
 
 ResolveResult Resolver_collect_names(Resolver *resolver, OffsetArray *decls, Arena *arena) {
@@ -57,6 +57,8 @@ ResolveResult Resolver_decls(Resolver *resolver, OffsetArray *decls, Arena *aren
                 DOResolve(Resolver_type_expr(resolver, decls, arena, decldecl->type_expr));
                 break;
             case DECL_TYPE:
+                Type *type = &decl->as.type;
+                DOResolve(Resolver_type_expr(resolver, decls, arena, type->type_expr));
                 break;
         }
     }
@@ -82,6 +84,13 @@ ResolveResult Resolver_type_expr(Resolver *resolver, OffsetArray *decls, Arena *
             TypeArrow *arrow = &type_expr->as.type_arrow;
             DOResolve(Resolver_type_expr(resolver, decls, arena, arrow->from));
             DOResolve(Resolver_type_expr(resolver, decls, arena, arrow->to));
+            break;
+        case TYPE_EXPR_PRODUCT:
+            TypeProduct *product = &type_expr->as.type_product;
+            for (size_t i = 0; i < product->names.length; i++) {
+                Offset offset = product->type_exprs.offsets[i];
+                DOResolve(Resolver_type_expr(resolver, decls, arena, offset));
+            }
             break;
     };
 

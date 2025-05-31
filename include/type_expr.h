@@ -20,14 +20,21 @@ typedef struct {
     TypeExprIndex to;
 } TypeArrow;
 
+typedef struct {
+    StringArray names;
+    OffsetArray type_exprs;
+} TypeProduct;
+
 typedef enum {
     TYPE_EXPR_IDENTIFIER,
     TYPE_EXPR_ARROW,
+    TYPE_EXPR_PRODUCT,
 }  TypeExprKind;
 
 typedef union {
     TypeIdentifier type_ident;
     TypeArrow type_arrow;
+    TypeProduct type_product;
 }  TypeExprData;
 
 typedef struct {
@@ -36,21 +43,9 @@ typedef struct {
     Span sign_span;
 } TypeExpr;
 
-#define TYPE_EXPR_ARRAY_DEFAULT_CAPACITY 256
-
-typedef struct {
-    TypeExpr *type_exprs;
-    size_t capacity;
-    size_t length;
-} TypeExprArray;
-
 TypeExpr TypeExpr_identifier(InternId identifier_id, Span span);
 TypeExpr TypeExpr_arrow(TypeExprIndex from, TypeExprIndex to, Span span);
+TypeExpr TypeExpr_product(StringArray names, OffsetArray type_exprs, Span span);
 void TypeExpr_display(TypeExpr *type_expr, Arena *arena, Interner *interner, size_t depth);
-
-TypeExprArray TypeExprArray_new();
-void TypeExprArray_free(TypeExprArray *type_expr_array);
-TypeExprIndex TypeExprArray_append(TypeExprArray *type_expr_array, TypeExpr type_expr);
-TypeExpr TypeExprArray_get(TypeExprArray *type_expr_array, TypeExprIndex index);
 
 #endif // TYPE_EXPR_H

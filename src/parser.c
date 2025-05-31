@@ -50,6 +50,8 @@ ParseResult Parser_type_primary(Parser *parser) {
             );
         case TOKEN_LEFT_PAREN:
             return Parser_finish_paren_type(parser);
+        case TOKEN_KEYWORD_PRODUCT:
+            return Parser_finish_product_type(parser, token.span);
         default:
             ParseError error = ParseError_ut(token);
             return ParseResult_error(error);
@@ -61,6 +63,40 @@ ParseResult Parser_finish_paren_type(Parser *parser) {
     DOParse(Parser_expect_kind(parser, TOKEN_RIGHT_PAREN));
 
     return ParseResult_success_type_expr_index(type_expr);
+}
+
+// TODO: Product type constructors
+ParseResult Parser_finish_product_type(Parser *parser, Span span) {
+    DOParse(Parser_expect_kind(parser, TOKEN_LEFT_CURLY));
+    // TODO: Memory leak
+    StringArray names = StringArray_new();
+    OffsetArray type_exprs = OffsetArray_new();
+
+    WHILE_STILL_TOKEN_LEFT(result) {
+        CHECK_LEX_ERROR(result);
+
+        if (result.as.token.kind == TOKEN_RIGHT_CURLY) {
+            break;
+        }
+
+        BINDParseT(token, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
+        StringArray_append(&names, token.as.lexeme_id);
+        DOParse(Parser_expect_kind(parser, TOKEN_COLON));
+        BINDParseTE(type_expr, Parser_type_expr(parser));
+        OffsetArray_append(&type_exprs, type_expr);
+
+        BINDLex(peek, Parser_peek_token(parser));
+        if (peek.kind == TOKEN_SEMICOLON) {
+            Parser_advance_token(parser);
+        } else {
+            break;
+        }
+    }
+    DOParse(Parser_expect_kind(parser, TOKEN_RIGHT_CURLY));
+
+    TypeExpr product = TypeExpr_product(names, type_exprs, span);
+    Offset offset = Arena_put(parser->arena, product);
+    return ParseResult_success_type_expr_index(offset);
 }
 
 ParseResult Parser_decls(Parser *parser) {
@@ -114,7 +150,9 @@ ParseResult Parser_finish_decl(Parser *parser) {
 ParseResult Parser_finish_type(Parser *parser) {
     Parser_advance_token(parser);
     BINDParseT(token, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
-    Decl type = Decl_type(token.as.lexeme_id, token.span);
+    DOParse(Parser_expect_kind(parser, TOKEN_EQUALS));
+    BINDParseTE(type_expr, Parser_type_expr(parser));
+    Decl type = Decl_type(token.as.lexeme_id, type_expr, token.span);
     Offset offset = Arena_put(parser->arena, type);
     OffsetArray_append(&parser->decls, offset);
 

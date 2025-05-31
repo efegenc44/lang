@@ -99,6 +99,7 @@ ParseResult Parser_type_expr(Parser *parser);
 ParseResult Parser_type_arrow(Parser *parser);
 ParseResult Parser_type_primary(Parser *parser);
 ParseResult Parser_finish_paren_type(Parser *parser);
+ParseResult Parser_finish_product_type(Parser *parser, Span span);
 ParseResult Parser_decls(Parser *parser);
 ParseResult Parser_decl(Parser *parser);
 ParseResult Parser_finish_bind(Parser *parser);

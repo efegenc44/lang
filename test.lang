@@ -1,12 +1,16 @@
-type Int
+type Int = product {}
+type String = product {}
+
+type Person = product {
+    name : String; age : Int
+}
 
 decl add : Int -> Int -> Int
 defn add = \x \y
     x + y
 
-
 decl main : Int
 defn main =
     let x = \x x in
     let y = \y y in
-        x y
+        x y main

@@ -21,7 +21,7 @@ void do_stuff(char *input, char *source_name) {
         case PARSE_RESULT_ERROR:
             ParseError parse_error = parse_result.as.error;
             ParseError_display(&parse_error, &interner, input, source_name);
-            goto end;
+            goto parse_error_end;
         case PARSE_RESULT_SUCCESS:
     }
     OffsetArray decls = parse_result.as.decls;
@@ -42,8 +42,9 @@ void do_stuff(char *input, char *source_name) {
     }
 
 end:
-    Resolver_free(&resolver);
     OffsetArray_free(&decls);
+parse_error_end:
+    Resolver_free(&resolver);
     Arena_free(&arena);
     Interner_free(&interner);
 }

@@ -43,6 +43,12 @@ LexResult Lexer_next(Lexer *lexer) {
         case ')':
             kind = TOKEN_RIGHT_PAREN;
             break;
+        case '{':
+            kind = TOKEN_LEFT_CURLY;
+            break;
+        case '}':
+            kind = TOKEN_RIGHT_CURLY;
+            break;
         case '+':
             kind = TOKEN_PLUS;
             break;
@@ -57,6 +63,9 @@ LexResult Lexer_next(Lexer *lexer) {
             break;
         case ':':
             kind = TOKEN_COLON;
+            break;
+        case ';':
+            kind = TOKEN_SEMICOLON;
             break;
         case '-':
             if (Lexer_peek(lexer) == '>') {
@@ -111,6 +120,8 @@ LexResult Lexer_identifier(Lexer *lexer) {
         token = Token_kind(TOKEN_KEYWORD_DECL, span);
     } else if (strncmp(lexeme, "type", 4) == 0) {
         token = Token_kind(TOKEN_KEYWORD_TYPE, span);
+    } else if (strncmp(lexeme, "product", 7) == 0) {
+        token = Token_kind(TOKEN_KEYWORD_PRODUCT, span);
     } else {
         char *lexeme = strndup(&lexer->source[start_index], length);
         InternId lexeme_id = Interner_register(lexer->interner, lexeme);

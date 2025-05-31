@@ -26,11 +26,12 @@ Decl Decl_decldecl(InternId name, TypeExprIndex type_expr, Span span) {
     };
 }
 
-Decl Decl_type(InternId name, Span span) {
+Decl Decl_type(InternId name, Offset type_expr, Span span) {
     return (Decl) {
         .kind = DECL_TYPE,
         .as.type = {
-            .name = name
+            .name = name,
+            .type_expr = type_expr
         },
         .sign_span = span
     };
@@ -38,19 +39,24 @@ Decl Decl_type(InternId name, Span span) {
 
 void Decl_display(Decl *decl, Arena *arena, Interner *interner) {
     switch (decl->kind) {
-        case DECL_BIND:
+        case DECL_BIND: {
             printf("Bind: %s\n", Interner_get(interner, decl->as.bind.name));
             Expr *expr = Arena_get(Expr, arena, decl->as.bind.expr);
             Expr_display(expr, arena, interner, 1);
             break;
-        case DECL_DECL:
+        }
+        case DECL_DECL: {
             printf("Decl: %s\n", Interner_get(interner, decl->as.decldecl.name));
             TypeExpr *type_expr = Arena_get(TypeExpr, arena, decl->as.decldecl.type_expr);
             TypeExpr_display(type_expr, arena, interner, 1);
             break;
-        case DECL_TYPE:
+        }
+        case DECL_TYPE: {
             printf("Type: %s\n", Interner_get(interner, decl->as.type.name));
+            TypeExpr *type_expr = Arena_get(TypeExpr, arena, decl->as.type.type_expr);
+            TypeExpr_display(type_expr, arena, interner, 1);
             break;
+        }
     }
 }
 
