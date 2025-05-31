@@ -49,6 +49,16 @@ typedef struct {
     ExprIndex argument;
 } Application;
 
+typedef struct {
+    StringArray names;
+    OffsetArray exprs;
+} Product;
+
+typedef struct {
+    Offset expr;
+    InternId name;
+} Projection;
+
 typedef enum {
     EXPR_INTEGER,
     EXPR_IDENTIFIER,
@@ -56,6 +66,8 @@ typedef enum {
     EXPR_LET,
     EXPR_LAMBDA,
     EXPR_APPLICATION,
+    EXPR_PRODUCT,
+    EXPR_PROJECTION,
 } ExprKind;
 
 typedef union {
@@ -65,6 +77,8 @@ typedef union {
     Let let;
     Lambda lambda;
     Application application;
+    Product product;
+    Projection projection;
 } ExprData;
 
 typedef struct {
@@ -92,6 +106,8 @@ Expr Expr_binary(ExprIndex lhs, BOp bop, ExprIndex rhs, Span span);
 Expr Expr_let(InternId variable, ExprIndex vexpr, ExprIndex rexpr, Span span);
 Expr Expr_lambda(InternId variable, ExprIndex expr, Span span);
 Expr Expr_application(ExprIndex function, ExprIndex argument, Span span);
+Expr Expr_product(StringArray names, OffsetArray exprs, Span span);
+Expr Expr_projection(Offset expr, InternId name, Span span);
 void Expr_display(Expr *expr, Arena *arena, Interner *interner, size_t depth);
 
 ExprArray ExprArray_new();

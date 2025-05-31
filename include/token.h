@@ -19,6 +19,7 @@ typedef enum {
     TOKEN_BACKSLASH,
     TOKEN_COLON,
     TOKEN_SEMICOLON,
+    TOKEN_DOT,
     TOKEN_MINUS,
     TOKEN_RIGHT_ARROW,
     TOKEN_KEYWORD_LET,
@@ -26,7 +27,6 @@ typedef enum {
     TOKEN_KEYWORD_DEFN,
     TOKEN_KEYWORD_DECL,
     TOKEN_KEYWORD_TYPE,
-    TOKEN_KEYWORD_PRODUCT,
 } TokenKind;
 
 typedef union {

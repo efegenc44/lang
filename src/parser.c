@@ -50,7 +50,7 @@ ParseResult Parser_type_primary(Parser *parser) {
             );
         case TOKEN_LEFT_PAREN:
             return Parser_finish_paren_type(parser);
-        case TOKEN_KEYWORD_PRODUCT:
+        case TOKEN_LEFT_CURLY:
             return Parser_finish_product_type(parser, token.span);
         default:
             ParseError error = ParseError_ut(token);
@@ -65,9 +65,7 @@ ParseResult Parser_finish_paren_type(Parser *parser) {
     return ParseResult_success_type_expr_index(type_expr);
 }
 
-// TODO: Product type constructors
 ParseResult Parser_finish_product_type(Parser *parser, Span span) {
-    DOParse(Parser_expect_kind(parser, TOKEN_LEFT_CURLY));
     // TODO: Memory leak
     StringArray names = StringArray_new();
     OffsetArray type_exprs = OffsetArray_new();
@@ -198,7 +196,7 @@ end:
 }
 
 ParseResult Parser_application(Parser *parser) {
-    BINDParse(function, Parser_primary(parser));
+    BINDParse(lhs, Parser_primary(parser));
     WHILE_STILL_TOKEN_LEFT(result) {
         CHECK_LEX_ERROR(result);
         Token token = result.as.token;
@@ -207,16 +205,23 @@ ParseResult Parser_application(Parser *parser) {
             case TOKEN_INTEGER:
             case TOKEN_IDENTIFIER:
             case TOKEN_LEFT_PAREN:
+            case TOKEN_LEFT_CURLY:
                 BINDParse(argument, Parser_primary(parser));
-                Expr application = Expr_application(function, argument, token.span);
-                function = Arena_put(parser->arena, application);
+                Expr application = Expr_application(lhs, argument, token.span);
+                lhs = Arena_put(parser->arena, application);
+                break;
+            case TOKEN_DOT:
+                Parser_advance_token(parser);
+                BINDParseT(name, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
+                Expr projection = Expr_projection(lhs, name.as.lexeme_id, token.span);
+                lhs = Arena_put(parser->arena, projection);
                 break;
             default:
                 goto end;
         }
     }
 end:
-    return ParseResult_success_expr_index(function);
+    return ParseResult_success_expr_index(lhs);
 }
 
 ParseResult Parser_primary(Parser *parser) {
@@ -234,6 +239,8 @@ ParseResult Parser_primary(Parser *parser) {
             );
         case TOKEN_LEFT_PAREN:
             return Parser_finish_paren(parser);
+        case TOKEN_LEFT_CURLY:
+            return Parser_finish_product(parser, token.span);
         default:
             ParseError error = ParseError_ut(token);
             return ParseResult_error(error);
@@ -268,6 +275,39 @@ ParseResult Parser_finish_lambda(Parser *parser) {
     ExprIndex index = Arena_put(parser->arena, lambda);
 
     return ParseResult_success_expr_index(index);
+}
+
+ParseResult Parser_finish_product(Parser *parser, Span span) {
+    // TODO: Memory leak
+    StringArray names = StringArray_new();
+    OffsetArray exprs = OffsetArray_new();
+
+    WHILE_STILL_TOKEN_LEFT(result) {
+        CHECK_LEX_ERROR(result);
+
+        if (result.as.token.kind == TOKEN_RIGHT_CURLY) {
+            break;
+        }
+
+        BINDParseT(token, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
+        StringArray_append(&names, token.as.lexeme_id);
+        DOParse(Parser_expect_kind(parser, TOKEN_EQUALS));
+        BINDParse(expr, Parser_expr(parser));
+        OffsetArray_append(&exprs, expr);
+
+        BINDLex(peek, Parser_peek_token(parser));
+        if (peek.kind == TOKEN_SEMICOLON) {
+            Parser_advance_token(parser);
+        } else {
+            break;
+        }
+    }
+    DOParse(Parser_expect_kind(parser, TOKEN_RIGHT_CURLY));
+
+    Expr product = Expr_product(names, exprs, span);
+    Offset offset = Arena_put(parser->arena, product);
+
+    return ParseResult_success_expr_index(offset);
 }
 
 LexResult Parser_advance_token(Parser *parser) {

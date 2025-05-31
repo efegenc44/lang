@@ -66,6 +66,9 @@ void Token_display(Token *token, Interner *interner) {
         case TOKEN_SEMICOLON:
             printf(";");
             break;
+        case TOKEN_DOT:
+            printf(".");
+            break;
         case TOKEN_MINUS:
             printf("-");
             break;
@@ -86,9 +89,6 @@ void Token_display(Token *token, Interner *interner) {
             break;
         case TOKEN_KEYWORD_TYPE:
             printf("type");
-            break;
-        case TOKEN_KEYWORD_PRODUCT:
-            printf("product");
             break;
     }
 }

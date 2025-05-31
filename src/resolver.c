@@ -143,6 +143,16 @@ ResolveResult Resolver_expr(Resolver *resolver, OffsetArray *decls, Arena *arena
             DOResolve(Resolver_expr(resolver, decls, arena, appl->function));
             DOResolve(Resolver_expr(resolver, decls, arena, appl->argument));
             break;
+        case EXPR_PRODUCT:
+            Product *product = &expr->as.product;
+            for (size_t i = 0; i < product->names.length; i++) {
+                Offset offset = product->exprs.offsets[i];
+                DOResolve(Resolver_expr(resolver, decls, arena, offset));
+            }
+            break;
+        case EXPR_PROJECTION:
+            DOResolve(Resolver_expr(resolver, decls, arena, expr->as.projection.expr));
+            break;
     };
 
     return ResolveResult_success();

@@ -1,13 +1,13 @@
-type Int = product {}
-type String = product {}
+type Int = {}
+type String = {}
 
-type Person = product {
+type Person = {
     name : String; age : Int
 }
 
 decl add : Int -> Int -> Int
 defn add = \x \y
-    x + y
+    (x + y) { x = 5; y = 0 }.x.y x
 
 decl main : Int
 defn main =

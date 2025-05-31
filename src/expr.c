@@ -89,6 +89,28 @@ Expr Expr_application(ExprIndex function, ExprIndex argument, Span span) {
     };
 }
 
+Expr Expr_product(StringArray names, OffsetArray exprs, Span span) {
+    return (Expr) {
+        .kind = EXPR_PRODUCT,
+        .as.product = {
+            .names = names,
+            .exprs = exprs
+        },
+        .sign_span = span
+    };
+}
+
+Expr Expr_projection(Offset expr, InternId name, Span span) {
+    return (Expr) {
+        .kind = EXPR_PROJECTION,
+        .as.projection = {
+            .expr = expr,
+            .name = name
+        },
+        .sign_span = span
+    };
+}
+
 void Expr_display(Expr *expr, Arena *arena, Interner *interner, size_t depth) {
     for (size_t i = 0; i < depth*2; i++) printf(" ");
     switch (expr->kind) {
@@ -151,6 +173,28 @@ void Expr_display(Expr *expr, Arena *arena, Interner *interner, size_t depth) {
             Expr_display(function, arena, interner, depth + 1);
             Expr *argument = Arena_get(Expr, arena, expr->as.application.argument);
             Expr_display(argument, arena, interner, depth + 1);
+            break;
+        case EXPR_PRODUCT:
+            Product *product = &expr->as.product;
+            printf("product\n");
+            for (size_t i = 0; i < product->names.length; i++) {
+                Offset offset = product->exprs.offsets[i];
+                InternId intern_id = product->names.strings[i];
+                for (size_t i = 0; i < (depth + 1)*2; i++) printf(" ");
+                printf("%s =\n", Interner_get(interner, intern_id));
+                Expr *expr = Arena_get(Expr, arena, offset);
+                Expr_display(expr, arena, interner, depth + 2);
+            }
+            break;
+        case EXPR_PROJECTION:
+            printf("Projection");
+            printf(" | ");
+            Span_display_start(&expr->sign_span);
+            printf("\n");
+            Expr *pexpr = Arena_get(Expr, arena, expr->as.projection.expr);
+            Expr_display(pexpr, arena, interner, depth + 1);
+            for (size_t i = 0; i < (depth + 1)*2; i++) printf(" ");
+            printf("%s\n", Interner_get(interner, expr->as.projection.name));
             break;
     }
 }
