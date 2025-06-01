@@ -29,7 +29,13 @@ ParseResult Parser_type_expr(Parser *parser) {
 ParseResult Parser_type_arrow(Parser *parser) {
     // Anonymous product and anonymous sum? types ?
     BINDParseTE(from, Parser_type_primary(parser));
-    BINDLex(token, Parser_peek_token(parser));
+    LexResult result = Parser_peek_token(parser);
+    CHECK_LEX_ERROR(result);
+    if (result.kind == LEX_RESULT_DONE) {
+        return ParseResult_success_type_expr_index(from);
+    }
+    Token token = result.as.token;
+
     if (token.kind == TOKEN_RIGHT_ARROW) {
         Parser_advance_token(parser);
         BINDParseTE(to, Parser_type_arrow(parser));
@@ -153,6 +159,7 @@ ParseResult Parser_finish_type(Parser *parser) {
     Decl type = Decl_type(token.as.lexeme_id, type_expr, token.span);
     Offset offset = Arena_put(parser->arena, type);
     OffsetArray_append(&parser->decls, offset);
+
 
     return ParseResult_success();
 }

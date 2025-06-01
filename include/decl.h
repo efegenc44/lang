@@ -30,12 +30,12 @@ typedef struct {
 typedef struct {
     InternId name;
     Offset type_expr;
-} Type;
+} DeclType;
 
 typedef struct {
     Bind bind;
     DeclDecl decldecl;
-    Type type;
+    DeclType type;
 } DeclData;
 
 typedef struct {

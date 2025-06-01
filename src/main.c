@@ -8,6 +8,7 @@
 #include "parser.h"
 #include "interner.h"
 #include "resolver.h"
+#include "type_checker.h"
 
 void do_stuff(char *input, char *source_name) {
     Interner interner = Interner_new();
@@ -15,6 +16,7 @@ void do_stuff(char *input, char *source_name) {
     Lexer lexer = Lexer_new(input, &interner);
     Parser parser = Parser_new(lexer, &arena);
     Resolver resolver = Resolver_new();
+    TypeChecker checker = TypeChecker_new();
 
     ParseResult parse_result = Parser_decls(&parser);
     switch (parse_result.kind) {
@@ -41,9 +43,19 @@ void do_stuff(char *input, char *source_name) {
         printf("\n");
     }
 
+    TypeCheckResult type_check_result = TypeChecker_decls(&checker, &decls, &arena);
+    switch (type_check_result.kind) {
+        case TYPE_CHECK_RESULT_ERROR:
+            TypeCheckError type_check_error = type_check_result.as.error;
+            TypeCheckResult_display(&type_check_error, &interner, input, source_name);
+            goto end;
+        case TYPE_CHECK_RESULT_SUCCESS:
+    }
+
 end:
     OffsetArray_free(&decls);
 parse_error_end:
+    TypeChecker_free(&checker);
     Resolver_free(&resolver);
     Arena_free(&arena);
     Interner_free(&interner);

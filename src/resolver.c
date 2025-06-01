@@ -34,7 +34,7 @@ ResolveResult Resolver_collect_names(Resolver *resolver, OffsetArray *decls, Are
                 StringArray_append(&resolver->defns, decldecl->name);
                 break;
             case DECL_TYPE:
-                Type *type = &decl->as.type;
+                DeclType *type = &decl->as.type;
                 StringArray_append(&resolver->types, type->name);
                 break;
         }
@@ -57,7 +57,7 @@ ResolveResult Resolver_decls(Resolver *resolver, OffsetArray *decls, Arena *aren
                 DOResolve(Resolver_type_expr(resolver, decls, arena, decldecl->type_expr));
                 break;
             case DECL_TYPE:
-                Type *type = &decl->as.type;
+                DeclType *type = &decl->as.type;
                 DOResolve(Resolver_type_expr(resolver, decls, arena, type->type_expr));
                 break;
         }

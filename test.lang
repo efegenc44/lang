@@ -1,16 +1,16 @@
-type Int = {}
-type String = {}
-
-type Person = {
-    name : String; age : Int
-}
-
 decl add : Int -> Int -> Int
 defn add = \x \y
-    (x + y) { x = 5; y = 0 }.x.y x
+    (x + y) { x = 10; y = 0 }.x.y x
 
 decl main : Int
 defn main =
     let x = \x x in
     let y = \y y in
         x y main
+
+struct Person = {
+    name : String; age : Int
+}
+
+type Int = {}
+type String = {}
