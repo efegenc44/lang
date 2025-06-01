@@ -56,7 +56,7 @@ TypeCheckResult TypeChecker_decls(TypeChecker *checker, OffsetArray *decls, Aren
             case DECL_BIND:
                 Bind *bind = &decl->as.bind;
                 BINDTypeCheck(t, TypeChecker_get_global_name(checker, bind->name, arena));
-                DOTypeCheck(TypeChecker_expect(checker, arena, bind->expr, t, decl->sign_span));
+                DOTypeCheck(TypeChecker_check(checker, arena, bind->expr, t, decl->sign_span));
                 break;
             case DECL_DECL:
                 DeclDecl *decldecl = &decl->as.decldecl;
@@ -80,6 +80,7 @@ TypeCheckResult TypeChecker_eval(TypeChecker *checker, Arena *arena, Offset type
             Bound bound = identifier->bound;
             switch (bound.kind) {
                 case BOUND_LOCAL:
+                    // TODO: Type variables.
                     assert(0);
                 case BOUND_GLOBAL: {
                     BINDTypeCheck(t, TypeChecker_get_global_type(checker, bound.id, arena));
@@ -111,7 +112,7 @@ TypeCheckResult TypeChecker_eval(TypeChecker *checker, Arena *arena, Offset type
     assert(0);
 }
 
-TypeCheckResult TypeChecker_expr(TypeChecker *checker, Arena *arena, Offset expr_index) {
+TypeCheckResult TypeChecker_infer(TypeChecker *checker, Arena *arena, Offset expr_index) {
     Expr *expr = Arena_get(Expr, arena, expr_index);
     switch (expr->kind) {
         case EXPR_INTEGER:
@@ -121,7 +122,7 @@ TypeCheckResult TypeChecker_expr(TypeChecker *checker, Arena *arena, Offset expr
             Bound bound = identifier->bound;
             switch (bound.kind) {
                 case BOUND_LOCAL: {
-                    Type t = checker->locals.types[checker->locals.length - bound.id];
+                    Type t = checker->locals.types[checker->locals.length - 1 - bound.id];
                     return TypeCheckResult_success_type(t);
                 }
                 case BOUND_GLOBAL: {
@@ -133,48 +134,43 @@ TypeCheckResult TypeChecker_expr(TypeChecker *checker, Arena *arena, Offset expr
             }
         case EXPR_BINARY:
             Binary *binary = &expr->as.binary;
-            DOTypeCheck(TypeChecker_expect(checker, arena, binary->lhs, Type_isize(), expr->sign_span));
-            DOTypeCheck(TypeChecker_expect(checker, arena, binary->rhs, Type_isize(), expr->sign_span));
+            DOTypeCheck(TypeChecker_check(checker, arena, binary->lhs, Type_isize(), expr->sign_span));
+            DOTypeCheck(TypeChecker_check(checker, arena, binary->rhs, Type_isize(), expr->sign_span));
             return TypeCheckResult_success_type(Type_isize());
         case EXPR_LET:
             Let* let = &expr->as.let;
-            BINDTypeCheck(vtype, TypeChecker_expr(checker, arena, let->vexpr));
+            BINDTypeCheck(vtype, TypeChecker_infer(checker, arena, let->vexpr));
             TypeArray_append(&checker->locals, vtype);
-                BINDTypeCheck(rtype, TypeChecker_expr(checker, arena, let->rexpr));
+                BINDTypeCheck(rtype, TypeChecker_infer(checker, arena, let->rexpr));
             TypeArray_pop(&checker->locals);
             return TypeCheckResult_success_type(rtype);
         case EXPR_LAMBDA:
             assert(0);
         case EXPR_APPLICATION:
             Application *app = &expr->as.application;
-            BINDTypeCheck(ftype, TypeChecker_expr(checker, arena, app->function));
-            BINDTypeCheck(atype, TypeChecker_expr(checker, arena, app->argument));
+            BINDTypeCheck(ftype, TypeChecker_infer(checker, arena, app->function));
             if (ftype.kind != TYPE_ARROW) {
                 return TypeCheckResult_error_ef(ftype, expr->sign_span);
             }
-
             Type *input = Arena_get(Type, arena, ftype.as.function.input);
             Type *output = Arena_get(Type, arena, ftype.as.function.output);
 
-            if (Type_eq(input, &atype)) {
-                return TypeCheckResult_success_type(*output);
-            } else {
-                return TypeCheckResult_error_unmatched(*input, atype, expr->sign_span);
-            }
+            DOTypeCheck(TypeChecker_check(checker, arena, app->argument, *input, expr->sign_span));
+            return TypeCheckResult_success_type(*output);
         case EXPR_PRODUCT:
             Product *product = &expr->as.product;
             // TODO: Memory leak
             TypeArray types = TypeArray_new();
             StringArray names = StringArray_new();
             for (size_t i = 0; i < product->exprs.length; i++) {
-                BINDTypeCheck(type, TypeChecker_expr(checker, arena, product->exprs.offsets[i]));
+                BINDTypeCheck(type, TypeChecker_infer(checker, arena, product->exprs.offsets[i]));
                 TypeArray_append(&types, type);
                 StringArray_append(&names, product->names.strings[i]);
             }
             return TypeCheckResult_success_type(Type_product(names, types));
         case EXPR_PROJECTION:
             Projection *projection = &expr->as.projection;
-            BINDTypeCheck(etype, TypeChecker_expr(checker, arena, projection->expr));
+            BINDTypeCheck(etype, TypeChecker_infer(checker, arena, projection->expr));
             if (etype.kind != TYPE_PRODUCT) {
                 return TypeCheckResult_error_ep(etype, expr->sign_span);
             }
@@ -188,13 +184,92 @@ TypeCheckResult TypeChecker_expr(TypeChecker *checker, Arena *arena, Offset expr
     assert(0);
 }
 
-TypeCheckResult TypeChecker_expect(TypeChecker *checker, Arena *arena, Offset expr_index, Type expected, Span span) {
-    BINDTypeCheck(found, TypeChecker_expr(checker, arena, expr_index));
-    if (Type_eq(&found, &expected)) {
-        return TypeCheckResult_success_type(expected);
-    } else {
-        return TypeCheckResult_error_unmatched(expected, found, span);
+TypeCheckResult TypeChecker_check(TypeChecker *checker, Arena *arena, Offset expr_index, Type expected, Span span) {
+    Expr *expr = Arena_get(Expr, arena, expr_index);
+    switch (expr->kind) {
+        case EXPR_INTEGER: {
+            if (expected.kind == TYPE_ISIZE) {
+                return TypeCheckResult_success();
+            } else {
+                return TypeCheckResult_error_unmatched(expected, Type_isize(), expr->sign_span);
+            }
+        }
+        case EXPR_IDENTIFIER: {
+            BINDTypeCheck(t, TypeChecker_infer(checker, arena, expr_index));
+            if (Type_eq(&t, &expected, arena)) {
+                return TypeCheckResult_success();
+            } else {
+                return TypeCheckResult_error_unmatched(expected, t, expr->sign_span);
+            }
+        }
+        case EXPR_BINARY: {
+            Binary *binary = &expr->as.binary;
+            DOTypeCheck(TypeChecker_check(checker, arena, binary->lhs, Type_isize(), expr->sign_span));
+            DOTypeCheck(TypeChecker_check(checker, arena, binary->rhs, Type_isize(), expr->sign_span));
+            if (expected.kind == TYPE_ISIZE) {
+                return TypeCheckResult_success();
+            } else {
+                // TODO: fix error message
+                return TypeCheckResult_error_unmatched(expected, Type_isize(), expr->sign_span);
+            }
+        }
+        case EXPR_LET: {
+            BINDTypeCheck(t, TypeChecker_infer(checker, arena, expr_index));
+            if (Type_eq(&t, &expected, arena)) {
+                return TypeCheckResult_success();
+            } else {
+                return TypeCheckResult_error_unmatched(expected, t, expr->sign_span);
+            }
+        }
+        case EXPR_LAMBDA: {
+            if (expected.kind != TYPE_ARROW) {
+                // TODO: fix error message, it is reversed
+                return TypeCheckResult_error_ef(expected, expr->sign_span);
+            }
+            Lambda *lambda = &expr->as.lambda;
+            Type *input = Arena_get(Type, arena, expected.as.function.input);
+            Type *output = Arena_get(Type, arena, expected.as.function.output);
+            TypeArray_append(&checker->locals, *input);
+                DOTypeCheck(TypeChecker_check(checker, arena, lambda->expr, *output, span));
+            TypeArray_pop(&checker->locals);
+            return TypeCheckResult_success();
+        }
+        case EXPR_APPLICATION: {
+            BINDTypeCheck(app, TypeChecker_infer(checker, arena, expr_index))
+            if (Type_eq(&app, &expected, arena)) {
+                return TypeCheckResult_success();
+            } else {
+                return TypeCheckResult_error_unmatched(expected, app, expr->sign_span);
+            }
+        }
+        case EXPR_PRODUCT: {
+            BINDTypeCheck(product, TypeChecker_infer(checker, arena, expr_index))
+            if (Type_eq(&product, &expected, arena)) {
+                return TypeCheckResult_success();
+            } else {
+                return TypeCheckResult_error_unmatched(expected, product, expr->sign_span);
+            }
+        }
+        case EXPR_PROJECTION: {
+            Projection *projection = &expr->as.projection;
+            BINDTypeCheck(etype, TypeChecker_infer(checker, arena, projection->expr));
+            if (etype.kind != TYPE_PRODUCT) {
+                return TypeCheckResult_error_ep(etype, expr->sign_span);
+            }
+            for (size_t i = 0; i < etype.as.product.names.length; i++) {
+                if (etype.as.product.names.strings[i] == projection->name) {
+                    Type found = etype.as.product.types.types[i];
+                    if (Type_eq(&found, &expected, arena)) {
+                        return TypeCheckResult_success();
+                    } else {
+                        return TypeCheckResult_error_unmatched(expected, found, expr->sign_span);
+                    }
+                }
+            }
+            return TypeCheckResult_error_no_field(projection->name, expr->sign_span);
+        }
     }
+    assert(0);
 }
 
 TypeCheckResult TypeChecker_get_global_name(TypeChecker *checker, InternId name, Arena *arena) {
@@ -219,26 +294,30 @@ TypeCheckResult TypeChecker_get_global_type(TypeChecker *checker, InternId name,
     assert(0);
 }
 
-void TypeCheckResult_display(TypeCheckError *error, Interner *interner, char *source, char *source_name) {
+void TypeCheckResult_display(TypeCheckError *error, Arena *arena, Interner *interner, char *source, char *source_name) {
     Span_display_location(&error->span, source_name);
     printf(": error: ");
 
     switch (error->kind) {
         case TYPE_CHECK_ERROR_UNMATCHED_TYPES:
             printf("Expected '");
+            Type_display(&error->as.unexpected.expected, arena, interner);
             printf("' but found '");
+            Type_display(&error->as.unexpected.found, arena, interner);
             printf("'");
             break;
         case TYPE_CHECK_ERROR_EXPECTED_FUNCTION:
             printf("Expected a function but found '");
+            Type_display(&error->as.found, arena, interner);
             printf("'");
             break;
         case TYPE_CHECK_ERROR_EXPECTED_PRODUCT:
             printf("Expected a product but found '");
+            Type_display(&error->as.found, arena, interner);
             printf("'");
             break;
         case TYPE_CHECK_ERROR_DOES_NOT_HAVE_FIELD:
-            printf("Product has no field names '");
+            printf("Product has no field named '");
             printf("%s", Interner_get(interner, error->as.field));
             printf("'");
             break;

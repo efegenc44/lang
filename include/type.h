@@ -47,7 +47,7 @@ Type TypeArray_pop(TypeArray *array);
 Type Type_isize();
 Type Type_product(StringArray names, TypeArray types);
 Type Type_arrow(Offset input, Offset output);
-bool Type_eq(Type *lhs, Type *rhs);
+bool Type_eq(Type *lhs, Type *rhs, Arena *arena);
 void Type_display(Type *type, Arena *arena, Interner *interner);
 
 #endif // TYPE_H

@@ -75,11 +75,12 @@ void TypeChecker_free(TypeChecker *checker);
 TypeCheckResult TypeChecker_collect_types(TypeChecker *checker, OffsetArray *decls, Arena *arena);
 TypeCheckResult TypeChecker_decls(TypeChecker *checker, OffsetArray *decls, Arena *arena);
 TypeCheckResult TypeChecker_eval(TypeChecker *checker, Arena *arena, Offset type_expr_index);
-TypeCheckResult TypeChecker_expr(TypeChecker *checker, Arena *arena, Offset expr_index);
+TypeCheckResult TypeChecker_infer(TypeChecker *checker, Arena *arena, Offset expr_index);
 TypeCheckResult TypeChecker_expect(TypeChecker *checker, Arena *arena, Offset expr_index, Type expected, Span span);
+TypeCheckResult TypeChecker_check(TypeChecker *checker, Arena *arena, Offset expr_index, Type expected, Span span);
 TypeCheckResult TypeChecker_get_global_name(TypeChecker *checker, InternId name, Arena *arena);
 TypeCheckResult TypeChecker_get_global_type(TypeChecker *checker, InternId name, Arena *arena);
-void TypeCheckResult_display(TypeCheckError *error, Interner *interner, char *input, char *source_name);
+void TypeCheckResult_display(TypeCheckError *error, Arena *arena, Interner *interner, char *input, char *source_name);
 
 
 TypeCheckResult TypeCheckResult_success();

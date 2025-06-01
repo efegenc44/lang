@@ -47,7 +47,7 @@ void do_stuff(char *input, char *source_name) {
     switch (type_check_result.kind) {
         case TYPE_CHECK_RESULT_ERROR:
             TypeCheckError type_check_error = type_check_result.as.error;
-            TypeCheckResult_display(&type_check_error, &interner, input, source_name);
+            TypeCheckResult_display(&type_check_error, &arena, &interner, input, source_name);
             goto end;
         case TYPE_CHECK_RESULT_SUCCESS:
     }
