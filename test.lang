@@ -1,5 +1,5 @@
 type A = { a: {} }
-type B = { b: { c: {} } }
+type B = { b: { a: {} } }
 
-decl id : (A -> B) -> A -> {}
-defn id = \f \a f a.b.c
+decl id : (A -> B) -> B -> {}
+defn id = \f \a (f a.b).b.a

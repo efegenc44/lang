@@ -203,7 +203,7 @@ end:
 }
 
 ParseResult Parser_application(Parser *parser) {
-    BINDParse(lhs, Parser_primary(parser));
+    BINDParse(lhs, Parser_projection(parser));
     WHILE_STILL_TOKEN_LEFT(result) {
         CHECK_LEX_ERROR(result);
         Token token = result.as.token;
@@ -213,10 +213,24 @@ ParseResult Parser_application(Parser *parser) {
             case TOKEN_IDENTIFIER:
             case TOKEN_LEFT_PAREN:
             case TOKEN_LEFT_CURLY:
-                BINDParse(argument, Parser_primary(parser));
+                BINDParse(argument, Parser_projection(parser));
                 Expr application = Expr_application(lhs, argument, token.span);
                 lhs = Arena_put(parser->arena, application);
                 break;
+            default:
+                goto end;
+        }
+    }
+end:
+    return ParseResult_success_expr_index(lhs);
+}
+
+ParseResult Parser_projection(Parser *parser) {
+    BINDParse(lhs, Parser_primary(parser));
+    WHILE_STILL_TOKEN_LEFT(result) {
+        CHECK_LEX_ERROR(result);
+        Token token = result.as.token;
+        switch (token.kind) {
             case TOKEN_DOT:
                 Parser_advance_token(parser);
                 BINDParseT(name, Parser_expect_kind(parser, TOKEN_IDENTIFIER));

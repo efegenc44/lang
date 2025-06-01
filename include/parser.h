@@ -108,6 +108,7 @@ ParseResult Parser_finish_type(Parser *parser);
 ParseResult Parser_expr(Parser *parser);
 ParseResult Parser_binary(Parser *parser, size_t min_prec);
 ParseResult Parser_application(Parser *parser);
+ParseResult Parser_projection(Parser *parser);
 ParseResult Parser_primary(Parser *parser);
 ParseResult Parser_finish_paren(Parser *parser);
 ParseResult Parser_finish_let(Parser *parser);
