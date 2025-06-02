@@ -64,12 +64,19 @@ bool Type_eq(Type *lhs, Type *rhs, Arena *arena) {
             if (rhs->kind != TYPE_PRODUCT) return false;
             if (lhs->as.product.names.length != rhs->as.product.names.length) return false;
 
-            for (size_t i = 0; i < lhs->as.product.names.length; i++) {
-                if (lhs->as.product.names.strings[i] != rhs->as.product.names.strings[i]) {
-                    return false;
+            size_t length = lhs->as.product.names.length;
+            bool found;
+            for (size_t i = 0; i < length; i++) {
+                found = false;
+                for (size_t j = 0; j < length; j++) {
+                    if (lhs->as.product.names.strings[i] == rhs->as.product.names.strings[j]) {
+                        found = true;
+                        if (!Type_eq(&lhs->as.product.types.types[i], &rhs->as.product.types.types[j], arena)) {
+                            return false;
+                        }
+                    }
                 }
-
-                if (!Type_eq(&lhs->as.product.types.types[i], &rhs->as.product.types.types[i], arena)) {
+                if (!found) {
                     return false;
                 }
             }

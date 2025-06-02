@@ -1,5 +1,11 @@
-type A = { a: {} }
-type B = { b: { a: {} } }
+type A = { a : {}; b : {}; c : B }
+type B = { b : { a : {} } }
 
-decl id : (A -> B) -> B -> {}
-defn id = \f \a (f a.b).b.a
+decl x : A
+defn x = { b = {}; c = { b = { a = {} } }; a = {} }
+
+decl f : (A -> B) -> A -> { a : {} }
+defn f = \g \a (g a).b
+
+decl main : {} -> { a : {} }
+defn main = \u (f (\a a.c) x)
