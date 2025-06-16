@@ -15,16 +15,18 @@ typedef struct {
     size_t length;
 } Interner;
 
+extern Interner interner;
+
 typedef struct {
     InternId *strings;
     size_t capacity;
     size_t length;
 } StringArray;
 
-Interner Interner_new();
-void Interner_free(Interner *interner);
-InternId Interner_register(Interner *interner, char *string);
-char *Interner_get(Interner *interner, InternId id);
+void Interner_init();
+void Interner_free();
+InternId Interner_register(char *string);
+char *Interner_get(InternId id);
 
 StringArray StringArray_new();
 void StringArray_free(StringArray *array);

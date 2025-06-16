@@ -3,7 +3,6 @@
 
 #include <stddef.h>
 
-#include "interner.h"
 #include "expr.h"
 #include "bound.h"
 #include "span.h"
@@ -56,13 +55,13 @@ typedef struct {
 
 Resolver Resolver_new();
 void Resolver_free(Resolver *resolver);
-ResolveResult Resolver_collect_names(Resolver *resolver, OffsetArray *decls, Arena *arena);
-ResolveResult Resolver_decls(Resolver *resolver, OffsetArray *decls, Arena *arena);
-ResolveResult Resolver_type_expr(Resolver *resolver, OffsetArray *decls, Arena *arena, TypeExprIndex type_expr_index);
-ResolveResult Resolver_expr(Resolver *resolver, OffsetArray *decls, Arena *arena, ExprIndex expr_index);
+ResolveResult Resolver_collect_names(Resolver *resolver, OffsetArray *decls);
+ResolveResult Resolver_decls(Resolver *resolver, OffsetArray *decls);
+ResolveResult Resolver_type_expr(Resolver *resolver, OffsetArray *decls, TypeExprIndex type_expr_index);
+ResolveResult Resolver_expr(Resolver *resolver, OffsetArray *decls, ExprIndex expr_index);
 
 ResolveError ResolveError_ui(InternId identifier, Span span);
-void ResolveError_display(ResolveError *error, Interner *interner, char *source, char *source_name);
+void ResolveError_display(ResolveError *error, char *source, char *source_name);
 
 ResolveResult ResolveResult_success();
 ResolveResult ResolveResult_error(ResolveError error);

@@ -108,7 +108,7 @@ Expr Expr_lambda(InternId variable, ExprIndex expr, Span span);
 Expr Expr_application(ExprIndex function, ExprIndex argument, Span span);
 Expr Expr_product(StringArray names, OffsetArray exprs, Span span);
 Expr Expr_projection(Offset expr, InternId name, Span span);
-void Expr_display(Expr *expr, Arena *arena, Interner *interner, size_t depth);
+void Expr_display(Expr *expr, size_t depth);
 
 ExprArray ExprArray_new();
 void ExprArray_free(ExprArray *expr_array);

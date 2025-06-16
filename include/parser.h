@@ -5,7 +5,6 @@
 #include "expr.h"
 #include "type_expr.h"
 #include "decl.h"
-#include "arena.h"
 
 #define CHECK_LEX_ERROR(result)                                   \
     if ((result).kind == LEX_RESULT_ERROR) {                      \
@@ -57,7 +56,6 @@ typedef struct {
     Lexer lexer;
     LexResult peek;
     OffsetArray decls;
-    Arena *arena;
 } Parser;
 
 typedef enum {
@@ -94,7 +92,7 @@ typedef struct {
     ParseResultData as;
 } ParseResult;
 
-Parser Parser_new(Lexer lexer, Arena *arena);
+Parser Parser_new(Lexer lexer);
 ParseResult Parser_type_expr(Parser *parser);
 ParseResult Parser_type_arrow(Parser *parser);
 ParseResult Parser_type_primary(Parser *parser);

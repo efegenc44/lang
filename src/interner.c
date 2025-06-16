@@ -3,39 +3,41 @@
 
 #include "interner.h"
 
-Interner Interner_new() {
-    return (Interner) {
+Interner interner = {0};
+
+void Interner_init() {
+    interner = (Interner) {
         .strings = malloc(INTERNER_DEFAULT_CAPACITY*sizeof(char *)),
         .capacity = INTERNER_DEFAULT_CAPACITY,
         .length = 0
     };
 }
 
-void Interner_free(Interner *interner) {
-    for (size_t i = 0; i < interner->length; i++) {
-        free(Interner_get(interner, i));
+void Interner_free() {
+    for (size_t i = 0; i < interner.length; i++) {
+        free(Interner_get(i));
     }
-    free(interner->strings);
+    free(interner.strings);
 }
 
-InternId Interner_register(Interner *interner, char *string) {
-    for (size_t i = 0; i < interner->length; i++) {
-        if (strcmp(Interner_get(interner, i), string) == 0) {
+InternId Interner_register(char *string) {
+    for (size_t i = 0; i < interner.length; i++) {
+        if (strcmp(Interner_get(i), string) == 0) {
             return i;
         }
     }
 
-    if (interner->capacity == interner->length) {
-        interner->capacity *= 2;
-        interner->strings = realloc(interner->strings, interner->capacity*sizeof(char *));
+    if (interner.capacity == interner.length) {
+        interner.capacity *= 2;
+        interner.strings = realloc(interner.strings, interner.capacity*sizeof(char *));
     }
-    interner->strings[interner->length] = string;
+    interner.strings[interner.length] = string;
 
-    return interner->length++;
+    return interner.length++;
 }
 
-char *Interner_get(Interner *interner, InternId id) {
-    return interner->strings[id];
+char *Interner_get(InternId id) {
+    return interner.strings[id];
 }
 
 StringArray StringArray_new() {

@@ -111,7 +111,7 @@ Expr Expr_projection(Offset expr, InternId name, Span span) {
     };
 }
 
-void Expr_display(Expr *expr, Arena *arena, Interner *interner, size_t depth) {
+void Expr_display(Expr *expr, size_t depth) {
     for (size_t i = 0; i < depth*2; i++) printf(" ");
     switch (expr->kind) {
         case EXPR_INTEGER:
@@ -122,7 +122,7 @@ void Expr_display(Expr *expr, Arena *arena, Interner *interner, size_t depth) {
             break;
         case EXPR_IDENTIFIER:
             Identifier ident = expr->as.identifier;
-            printf("%s ", Interner_get(interner, ident.identifier_id));
+            printf("%s ", Interner_get(ident.identifier_id));
             Bound_display(&ident.bound);
             printf(" | ");
             Span_display_start(&expr->sign_span);
@@ -140,39 +140,39 @@ void Expr_display(Expr *expr, Arena *arena, Interner *interner, size_t depth) {
             printf(" | ");
             Span_display_start(&expr->sign_span);
             printf("\n");
-            Expr *lhs = Arena_get(Expr, arena, expr->as.binary.lhs);
-            Expr *rhs = Arena_get(Expr, arena, expr->as.binary.rhs);
-            Expr_display(lhs, arena, interner, depth + 1);
-            Expr_display(rhs, arena, interner, depth + 1);
+            Expr *lhs = Arena_get(Expr, expr->as.binary.lhs);
+            Expr *rhs = Arena_get(Expr, expr->as.binary.rhs);
+            Expr_display(lhs, depth + 1);
+            Expr_display(rhs, depth + 1);
             break;
         case EXPR_LET:
-            printf("let %s", Interner_get(interner, expr->as.let.variable));
+            printf("let %s", Interner_get(expr->as.let.variable));
             printf(" | ");
             Span_display_start(&expr->sign_span);
             printf("\n");
-            Expr *vexpr = Arena_get(Expr, arena, expr->as.let.vexpr);
-            Expr *rexpr = Arena_get(Expr, arena, expr->as.let.rexpr);
-            Expr_display(vexpr, arena, interner, depth + 1);
+            Expr *vexpr = Arena_get(Expr, expr->as.let.vexpr);
+            Expr *rexpr = Arena_get(Expr, expr->as.let.rexpr);
+            Expr_display(vexpr, depth + 1);
             printf("\n");
-            Expr_display(rexpr, arena, interner, depth + 1);
+            Expr_display(rexpr, depth + 1);
             break;
         case EXPR_LAMBDA:
-            printf("\\%s", Interner_get(interner, expr->as.lambda.variable));
+            printf("\\%s", Interner_get(expr->as.lambda.variable));
             printf(" | ");
             Span_display_start(&expr->sign_span);
             printf("\n");
-            Expr *lexpr = Arena_get(Expr, arena, expr->as.lambda.expr);
-            Expr_display(lexpr, arena, interner, depth + 1);
+            Expr *lexpr = Arena_get(Expr, expr->as.lambda.expr);
+            Expr_display(lexpr, depth + 1);
             break;
         case EXPR_APPLICATION:
             printf("Application");
             printf(" | ");
             Span_display_start(&expr->sign_span);
             printf("\n");
-            Expr *function = Arena_get(Expr, arena, expr->as.application.function);
-            Expr_display(function, arena, interner, depth + 1);
-            Expr *argument = Arena_get(Expr, arena, expr->as.application.argument);
-            Expr_display(argument, arena, interner, depth + 1);
+            Expr *function = Arena_get(Expr, expr->as.application.function);
+            Expr_display(function, depth + 1);
+            Expr *argument = Arena_get(Expr, expr->as.application.argument);
+            Expr_display(argument, depth + 1);
             break;
         case EXPR_PRODUCT:
             Product *product = &expr->as.product;
@@ -181,9 +181,9 @@ void Expr_display(Expr *expr, Arena *arena, Interner *interner, size_t depth) {
                 Offset offset = product->exprs.offsets[i];
                 InternId intern_id = product->names.strings[i];
                 for (size_t i = 0; i < (depth + 1)*2; i++) printf(" ");
-                printf("%s =\n", Interner_get(interner, intern_id));
-                Expr *expr = Arena_get(Expr, arena, offset);
-                Expr_display(expr, arena, interner, depth + 2);
+                printf("%s =\n", Interner_get(intern_id));
+                Expr *expr = Arena_get(Expr, offset);
+                Expr_display(expr, depth + 2);
             }
             break;
         case EXPR_PROJECTION:
@@ -191,10 +191,10 @@ void Expr_display(Expr *expr, Arena *arena, Interner *interner, size_t depth) {
             printf(" | ");
             Span_display_start(&expr->sign_span);
             printf("\n");
-            Expr *pexpr = Arena_get(Expr, arena, expr->as.projection.expr);
-            Expr_display(pexpr, arena, interner, depth + 1);
+            Expr *pexpr = Arena_get(Expr, expr->as.projection.expr);
+            Expr_display(pexpr, depth + 1);
             for (size_t i = 0; i < (depth + 1)*2; i++) printf(" ");
-            printf("%s\n", Interner_get(interner, expr->as.projection.name));
+            printf("%s\n", Interner_get(expr->as.projection.name));
             break;
     }
 }

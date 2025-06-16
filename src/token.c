@@ -28,13 +28,13 @@ Token Token_identifier(InternId lexeme_id, Span span) {
     };
 }
 
-void Token_display(Token *token, Interner *interner) {
+void Token_display(Token *token) {
     switch (token->kind) {
         case TOKEN_INTEGER:
             printf("%ld", token->as.integer);
             break;
         case TOKEN_IDENTIFIER:
-            printf("%s", Interner_get(interner, token->as.lexeme_id));
+            printf("%s", Interner_get(token->as.lexeme_id));
             break;
         case TOKEN_LEFT_PAREN:
             printf("(");

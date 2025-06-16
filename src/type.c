@@ -4,6 +4,7 @@
 
 #include "type.h"
 #include "arena.h"
+#include "interner.h"
 
 TypeArray TypeArray_new() {
     return (TypeArray) {
@@ -56,7 +57,7 @@ Type Type_arrow(Offset input, Offset output) {
     };
 }
 
-bool Type_eq(Type *lhs, Type *rhs, Arena *arena) {
+bool Type_eq(Type *lhs, Type *rhs) {
     switch (lhs->kind) {
         case TYPE_ISIZE:
             return rhs->kind == TYPE_ISIZE;
@@ -71,7 +72,7 @@ bool Type_eq(Type *lhs, Type *rhs, Arena *arena) {
                 for (size_t j = 0; j < length; j++) {
                     if (lhs->as.product.names.strings[i] == rhs->as.product.names.strings[j]) {
                         found = true;
-                        if (!Type_eq(&lhs->as.product.types.types[i], &rhs->as.product.types.types[j], arena)) {
+                        if (!Type_eq(&lhs->as.product.types.types[i], &rhs->as.product.types.types[j])) {
                             return false;
                         }
                     }
@@ -84,15 +85,15 @@ bool Type_eq(Type *lhs, Type *rhs, Arena *arena) {
         case TYPE_ARROW:
             if (rhs->kind != TYPE_ARROW) return false;
 
-            Type *lhs_input = Arena_get(Type, arena, lhs->as.function.input);
-            Type *rhs_input = Arena_get(Type, arena, rhs->as.function.input);
-            if (!Type_eq(lhs_input, rhs_input, arena)) {
+            Type *lhs_input = Arena_get(Type, lhs->as.function.input);
+            Type *rhs_input = Arena_get(Type, rhs->as.function.input);
+            if (!Type_eq(lhs_input, rhs_input)) {
                 return false;
             }
 
-            Type *lhs_output = Arena_get(Type, arena, lhs->as.function.output);
-            Type *rhs_output = Arena_get(Type, arena, rhs->as.function.output);
-            if (!Type_eq(lhs_output, rhs_output, arena)) {
+            Type *lhs_output = Arena_get(Type, lhs->as.function.output);
+            Type *rhs_output = Arena_get(Type, rhs->as.function.output);
+            if (!Type_eq(lhs_output, rhs_output)) {
                 return false;
             }
             return true;
@@ -100,25 +101,25 @@ bool Type_eq(Type *lhs, Type *rhs, Arena *arena) {
     assert(0);
 }
 
-void Type_display(Type *type, Arena *arena, Interner *interner) {
+void Type_display(Type *type) {
     switch (type->kind) {
         case TYPE_ISIZE:
             printf("isize");
             break;
         case TYPE_ARROW:
-            Type *input = Arena_get(Type, arena, type->as.function.input);
-            Type *output = Arena_get(Type, arena, type->as.function.output);
-            Type_display(input, arena, interner);
+            Type *input = Arena_get(Type, type->as.function.input);
+            Type *output = Arena_get(Type, type->as.function.output);
+            Type_display(input);
             printf(" -> ");
-            Type_display(output, arena, interner);
+            Type_display(output);
             break;
         case TYPE_PRODUCT:
             printf("{");
             for (size_t i = 0; i < type->as.product.names.length; i++) {
                 Type *t = &type->as.product.types.types[i];
                 InternId intern_id = type->as.product.names.strings[i];
-                printf(" %s : ", Interner_get(interner, intern_id));
-                Type_display(t, arena, interner);
+                printf(" %s : ", Interner_get(intern_id));
+                Type_display(t);
                 if (i != type->as.product.names.length - 1) {
                     printf(";");
                 } else {

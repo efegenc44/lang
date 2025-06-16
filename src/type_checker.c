@@ -25,9 +25,9 @@ void TypeChecker_free(TypeChecker *checker) {
     free(checker->type_name_type_exprs.offsets);
 }
 
-TypeCheckResult TypeChecker_collect_types(TypeChecker *checker, OffsetArray *decls, Arena *arena) {
+TypeCheckResult TypeChecker_collect_types(TypeChecker *checker, OffsetArray *decls) {
         for (size_t i = 0; i < decls->length; i++) {
-        Decl *decl = Arena_get(Decl, arena, decls->offsets[i]);
+        Decl *decl = Arena_get(Decl, decls->offsets[i]);
         switch (decl->kind) {
             case DECL_BIND: continue;
             case DECL_DECL: {
@@ -48,23 +48,23 @@ TypeCheckResult TypeChecker_collect_types(TypeChecker *checker, OffsetArray *dec
     return TypeCheckResult_success();
 }
 
-TypeCheckResult TypeChecker_decls(TypeChecker *checker, OffsetArray *decls, Arena *arena) {
-    DOTypeCheck(TypeChecker_collect_types(checker, decls, arena));
+TypeCheckResult TypeChecker_decls(TypeChecker *checker, OffsetArray *decls) {
+    DOTypeCheck(TypeChecker_collect_types(checker, decls));
     for (size_t i = 0; i < decls->length; i++) {
-        Decl *decl = Arena_get(Decl, arena, decls->offsets[i]);
+        Decl *decl = Arena_get(Decl, decls->offsets[i]);
         switch (decl->kind) {
             case DECL_BIND:
                 Bind *bind = &decl->as.bind;
-                BINDTypeCheck(t, TypeChecker_get_global_name(checker, bind->name, arena));
-                DOTypeCheck(TypeChecker_check(checker, arena, bind->expr, t, decl->sign_span));
+                BINDTypeCheck(t, TypeChecker_get_global_name(checker, bind->name));
+                DOTypeCheck(TypeChecker_check(checker, bind->expr, t, decl->sign_span));
                 break;
             case DECL_DECL:
                 DeclDecl *decldecl = &decl->as.decldecl;
-                DOTypeCheck(TypeChecker_eval(checker, arena, decldecl->type_expr));
+                DOTypeCheck(TypeChecker_eval(checker, decldecl->type_expr));
                 break;
             case DECL_TYPE:
                 DeclType *type = &decl->as.type;
-                DOTypeCheck(TypeChecker_eval(checker, arena, type->type_expr));
+                DOTypeCheck(TypeChecker_eval(checker, type->type_expr));
                 break;
         }
     }
@@ -72,8 +72,8 @@ TypeCheckResult TypeChecker_decls(TypeChecker *checker, OffsetArray *decls, Aren
     return TypeCheckResult_success();
 }
 
-TypeCheckResult TypeChecker_eval(TypeChecker *checker, Arena *arena, Offset type_expr_index) {
-    TypeExpr *texpr = Arena_get(TypeExpr, arena, type_expr_index);
+TypeCheckResult TypeChecker_eval(TypeChecker *checker, Offset type_expr_index) {
+    TypeExpr *texpr = Arena_get(TypeExpr, type_expr_index);
     switch (texpr->kind) {
         case TYPE_EXPR_IDENTIFIER:
             TypeIdentifier *identifier = &texpr->as.type_ident;
@@ -83,7 +83,7 @@ TypeCheckResult TypeChecker_eval(TypeChecker *checker, Arena *arena, Offset type
                     // TODO: Type variables.
                     assert(0);
                 case BOUND_GLOBAL: {
-                    BINDTypeCheck(t, TypeChecker_get_global_type(checker, bound.id, arena));
+                    BINDTypeCheck(t, TypeChecker_get_global_type(checker, bound.id));
                     return TypeCheckResult_success_type(t);
                 }
                 case BOUND_UNDETERMINED:
@@ -91,10 +91,10 @@ TypeCheckResult TypeChecker_eval(TypeChecker *checker, Arena *arena, Offset type
             }
         case TYPE_EXPR_ARROW:
             TypeArrow *arrow = &texpr->as.type_arrow;
-            BINDTypeCheck(from, TypeChecker_eval(checker, arena, arrow->from));
-            BINDTypeCheck(to, TypeChecker_eval(checker, arena, arrow->to));
-            Offset from_offset = Arena_put(arena, from);
-            Offset to_offset = Arena_put(arena, to);
+            BINDTypeCheck(from, TypeChecker_eval(checker, arrow->from));
+            BINDTypeCheck(to, TypeChecker_eval(checker, arrow->to));
+            Offset from_offset = Arena_put(from);
+            Offset to_offset = Arena_put(to);
             Type tarrow = Type_arrow(from_offset, to_offset);
             return TypeCheckResult_success_type(tarrow);
         case TYPE_EXPR_PRODUCT:
@@ -103,7 +103,7 @@ TypeCheckResult TypeChecker_eval(TypeChecker *checker, Arena *arena, Offset type
             TypeArray types = TypeArray_new();
             StringArray names = StringArray_new();
             for (size_t i = 0; i < product->type_exprs.length; i++) {
-                BINDTypeCheck(type, TypeChecker_eval(checker, arena, product->type_exprs.offsets[i]));
+                BINDTypeCheck(type, TypeChecker_eval(checker, product->type_exprs.offsets[i]));
                 TypeArray_append(&types, type);
                 StringArray_append(&names, product->names.strings[i]);
             }
@@ -112,8 +112,8 @@ TypeCheckResult TypeChecker_eval(TypeChecker *checker, Arena *arena, Offset type
     assert(0);
 }
 
-TypeCheckResult TypeChecker_infer(TypeChecker *checker, Arena *arena, Offset expr_index) {
-    Expr *expr = Arena_get(Expr, arena, expr_index);
+TypeCheckResult TypeChecker_infer(TypeChecker *checker, Offset expr_index) {
+    Expr *expr = Arena_get(Expr, expr_index);
     switch (expr->kind) {
         case EXPR_INTEGER:
             return TypeCheckResult_success_type(Type_isize());
@@ -126,7 +126,7 @@ TypeCheckResult TypeChecker_infer(TypeChecker *checker, Arena *arena, Offset exp
                     return TypeCheckResult_success_type(t);
                 }
                 case BOUND_GLOBAL: {
-                    BINDTypeCheck(t, TypeChecker_get_global_name(checker, bound.id, arena));
+                    BINDTypeCheck(t, TypeChecker_get_global_name(checker, bound.id));
                     return TypeCheckResult_success_type(t);
                 }
                 case BOUND_UNDETERMINED:
@@ -134,28 +134,28 @@ TypeCheckResult TypeChecker_infer(TypeChecker *checker, Arena *arena, Offset exp
             }
         case EXPR_BINARY:
             Binary *binary = &expr->as.binary;
-            DOTypeCheck(TypeChecker_check(checker, arena, binary->lhs, Type_isize(), expr->sign_span));
-            DOTypeCheck(TypeChecker_check(checker, arena, binary->rhs, Type_isize(), expr->sign_span));
+            DOTypeCheck(TypeChecker_check(checker, binary->lhs, Type_isize(), expr->sign_span));
+            DOTypeCheck(TypeChecker_check(checker, binary->rhs, Type_isize(), expr->sign_span));
             return TypeCheckResult_success_type(Type_isize());
         case EXPR_LET:
             Let* let = &expr->as.let;
-            BINDTypeCheck(vtype, TypeChecker_infer(checker, arena, let->vexpr));
+            BINDTypeCheck(vtype, TypeChecker_infer(checker, let->vexpr));
             TypeArray_append(&checker->locals, vtype);
-                BINDTypeCheck(rtype, TypeChecker_infer(checker, arena, let->rexpr));
+                BINDTypeCheck(rtype, TypeChecker_infer(checker, let->rexpr));
             TypeArray_pop(&checker->locals);
             return TypeCheckResult_success_type(rtype);
         case EXPR_LAMBDA:
             assert(0);
         case EXPR_APPLICATION:
             Application *app = &expr->as.application;
-            BINDTypeCheck(ftype, TypeChecker_infer(checker, arena, app->function));
+            BINDTypeCheck(ftype, TypeChecker_infer(checker, app->function));
             if (ftype.kind != TYPE_ARROW) {
                 return TypeCheckResult_error_ef(ftype, expr->sign_span);
             }
-            Type *input = Arena_get(Type, arena, ftype.as.function.input);
-            Type *output = Arena_get(Type, arena, ftype.as.function.output);
+            Type *input = Arena_get(Type, ftype.as.function.input);
+            Type *output = Arena_get(Type, ftype.as.function.output);
 
-            DOTypeCheck(TypeChecker_check(checker, arena, app->argument, *input, expr->sign_span));
+            DOTypeCheck(TypeChecker_check(checker, app->argument, *input, expr->sign_span));
             return TypeCheckResult_success_type(*output);
         case EXPR_PRODUCT:
             Product *product = &expr->as.product;
@@ -163,14 +163,14 @@ TypeCheckResult TypeChecker_infer(TypeChecker *checker, Arena *arena, Offset exp
             TypeArray types = TypeArray_new();
             StringArray names = StringArray_new();
             for (size_t i = 0; i < product->exprs.length; i++) {
-                BINDTypeCheck(type, TypeChecker_infer(checker, arena, product->exprs.offsets[i]));
+                BINDTypeCheck(type, TypeChecker_infer(checker, product->exprs.offsets[i]));
                 TypeArray_append(&types, type);
                 StringArray_append(&names, product->names.strings[i]);
             }
             return TypeCheckResult_success_type(Type_product(names, types));
         case EXPR_PROJECTION:
             Projection *projection = &expr->as.projection;
-            BINDTypeCheck(etype, TypeChecker_infer(checker, arena, projection->expr));
+            BINDTypeCheck(etype, TypeChecker_infer(checker, projection->expr));
             if (etype.kind != TYPE_PRODUCT) {
                 return TypeCheckResult_error_ep(etype, expr->sign_span);
             }
@@ -184,8 +184,8 @@ TypeCheckResult TypeChecker_infer(TypeChecker *checker, Arena *arena, Offset exp
     assert(0);
 }
 
-TypeCheckResult TypeChecker_check(TypeChecker *checker, Arena *arena, Offset expr_index, Type expected, Span span) {
-    Expr *expr = Arena_get(Expr, arena, expr_index);
+TypeCheckResult TypeChecker_check(TypeChecker *checker, Offset expr_index, Type expected, Span span) {
+    Expr *expr = Arena_get(Expr, expr_index);
     switch (expr->kind) {
         case EXPR_INTEGER: {
             if (expected.kind == TYPE_ISIZE) {
@@ -195,8 +195,8 @@ TypeCheckResult TypeChecker_check(TypeChecker *checker, Arena *arena, Offset exp
             }
         }
         case EXPR_IDENTIFIER: {
-            BINDTypeCheck(t, TypeChecker_infer(checker, arena, expr_index));
-            if (Type_eq(&t, &expected, arena)) {
+            BINDTypeCheck(t, TypeChecker_infer(checker, expr_index));
+            if (Type_eq(&t, &expected)) {
                 return TypeCheckResult_success();
             } else {
                 return TypeCheckResult_error_unmatched(expected, t, expr->sign_span);
@@ -204,8 +204,8 @@ TypeCheckResult TypeChecker_check(TypeChecker *checker, Arena *arena, Offset exp
         }
         case EXPR_BINARY: {
             Binary *binary = &expr->as.binary;
-            DOTypeCheck(TypeChecker_check(checker, arena, binary->lhs, Type_isize(), expr->sign_span));
-            DOTypeCheck(TypeChecker_check(checker, arena, binary->rhs, Type_isize(), expr->sign_span));
+            DOTypeCheck(TypeChecker_check(checker, binary->lhs, Type_isize(), expr->sign_span));
+            DOTypeCheck(TypeChecker_check(checker, binary->rhs, Type_isize(), expr->sign_span));
             if (expected.kind == TYPE_ISIZE) {
                 return TypeCheckResult_success();
             } else {
@@ -214,8 +214,8 @@ TypeCheckResult TypeChecker_check(TypeChecker *checker, Arena *arena, Offset exp
             }
         }
         case EXPR_LET: {
-            BINDTypeCheck(t, TypeChecker_infer(checker, arena, expr_index));
-            if (Type_eq(&t, &expected, arena)) {
+            BINDTypeCheck(t, TypeChecker_infer(checker, expr_index));
+            if (Type_eq(&t, &expected)) {
                 return TypeCheckResult_success();
             } else {
                 return TypeCheckResult_error_unmatched(expected, t, expr->sign_span);
@@ -227,24 +227,24 @@ TypeCheckResult TypeChecker_check(TypeChecker *checker, Arena *arena, Offset exp
                 return TypeCheckResult_error_ef(expected, expr->sign_span);
             }
             Lambda *lambda = &expr->as.lambda;
-            Type *input = Arena_get(Type, arena, expected.as.function.input);
-            Type *output = Arena_get(Type, arena, expected.as.function.output);
+            Type *input = Arena_get(Type, expected.as.function.input);
+            Type *output = Arena_get(Type, expected.as.function.output);
             TypeArray_append(&checker->locals, *input);
-                DOTypeCheck(TypeChecker_check(checker, arena, lambda->expr, *output, span));
+                DOTypeCheck(TypeChecker_check(checker, lambda->expr, *output, span));
             TypeArray_pop(&checker->locals);
             return TypeCheckResult_success();
         }
         case EXPR_APPLICATION: {
-            BINDTypeCheck(app, TypeChecker_infer(checker, arena, expr_index))
-            if (Type_eq(&app, &expected, arena)) {
+            BINDTypeCheck(app, TypeChecker_infer(checker, expr_index))
+            if (Type_eq(&app, &expected)) {
                 return TypeCheckResult_success();
             } else {
                 return TypeCheckResult_error_unmatched(expected, app, expr->sign_span);
             }
         }
         case EXPR_PRODUCT: {
-            BINDTypeCheck(product, TypeChecker_infer(checker, arena, expr_index))
-            if (Type_eq(&product, &expected, arena)) {
+            BINDTypeCheck(product, TypeChecker_infer(checker, expr_index))
+            if (Type_eq(&product, &expected)) {
                 return TypeCheckResult_success();
             } else {
                 return TypeCheckResult_error_unmatched(expected, product, expr->sign_span);
@@ -252,14 +252,14 @@ TypeCheckResult TypeChecker_check(TypeChecker *checker, Arena *arena, Offset exp
         }
         case EXPR_PROJECTION: {
             Projection *projection = &expr->as.projection;
-            BINDTypeCheck(etype, TypeChecker_infer(checker, arena, projection->expr));
+            BINDTypeCheck(etype, TypeChecker_infer(checker, projection->expr));
             if (etype.kind != TYPE_PRODUCT) {
                 return TypeCheckResult_error_ep(etype, expr->sign_span);
             }
             for (size_t i = 0; i < etype.as.product.names.length; i++) {
                 if (etype.as.product.names.strings[i] == projection->name) {
                     Type found = etype.as.product.types.types[i];
-                    if (Type_eq(&found, &expected, arena)) {
+                    if (Type_eq(&found, &expected)) {
                         return TypeCheckResult_success();
                     } else {
                         return TypeCheckResult_error_unmatched(expected, found, expr->sign_span);
@@ -272,53 +272,53 @@ TypeCheckResult TypeChecker_check(TypeChecker *checker, Arena *arena, Offset exp
     assert(0);
 }
 
-TypeCheckResult TypeChecker_get_global_name(TypeChecker *checker, InternId name, Arena *arena) {
+TypeCheckResult TypeChecker_get_global_name(TypeChecker *checker, InternId name) {
     for (size_t i = 0; i < checker->global_names.length; i++) {
         if (checker->global_names.strings[i] == name) {
             Offset offset = checker->name_type_exprs.offsets[i];
-            return TypeChecker_eval(checker, arena, offset);
+            return TypeChecker_eval(checker, offset);
         }
     }
 
     assert(0);
 }
 
-TypeCheckResult TypeChecker_get_global_type(TypeChecker *checker, InternId name, Arena *arena) {
+TypeCheckResult TypeChecker_get_global_type(TypeChecker *checker, InternId name) {
     for (size_t i = 0; i < checker->global_type_names.length; i++) {
         if (checker->global_type_names.strings[i] == name) {
             Offset offset = checker->type_name_type_exprs.offsets[i];
-            return TypeChecker_eval(checker, arena, offset);
+            return TypeChecker_eval(checker, offset);
         }
     }
 
     assert(0);
 }
 
-void TypeCheckResult_display(TypeCheckError *error, Arena *arena, Interner *interner, char *source, char *source_name) {
+void TypeCheckResult_display(TypeCheckError *error, char *source, char *source_name) {
     Span_display_location(&error->span, source_name);
     printf(": error: ");
 
     switch (error->kind) {
         case TYPE_CHECK_ERROR_UNMATCHED_TYPES:
             printf("Expected '");
-            Type_display(&error->as.unexpected.expected, arena, interner);
+            Type_display(&error->as.unexpected.expected);
             printf("' but found '");
-            Type_display(&error->as.unexpected.found, arena, interner);
+            Type_display(&error->as.unexpected.found);
             printf("'");
             break;
         case TYPE_CHECK_ERROR_EXPECTED_FUNCTION:
             printf("Expected a function but found '");
-            Type_display(&error->as.found, arena, interner);
+            Type_display(&error->as.found);
             printf("'");
             break;
         case TYPE_CHECK_ERROR_EXPECTED_PRODUCT:
             printf("Expected a product but found '");
-            Type_display(&error->as.found, arena, interner);
+            Type_display(&error->as.found);
             printf("'");
             break;
         case TYPE_CHECK_ERROR_DOES_NOT_HAVE_FIELD:
             printf("Product has no field named '");
-            printf("%s", Interner_get(interner, error->as.field));
+            printf("%s", Interner_get(error->as.field));
             printf("'");
             break;
     }

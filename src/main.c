@@ -11,10 +11,11 @@
 #include "type_checker.h"
 
 void do_stuff(char *input, char *source_name) {
-    Interner interner = Interner_new();
-    Arena arena = Arena_new();
-    Lexer lexer = Lexer_new(input, &interner);
-    Parser parser = Parser_new(lexer, &arena);
+    // TODO: repl
+    Interner_init();
+    Arena_init();
+    Lexer lexer = Lexer_new(input);
+    Parser parser = Parser_new(lexer);
     Resolver resolver = Resolver_new();
     TypeChecker checker = TypeChecker_new();
 
@@ -28,26 +29,26 @@ void do_stuff(char *input, char *source_name) {
     }
     OffsetArray decls = parse_result.as.decls;
 
-    ResolveResult resolve_result = Resolver_decls(&resolver, &decls, &arena);
+    ResolveResult resolve_result = Resolver_decls(&resolver, &decls);
     switch (resolve_result.kind) {
         case RESOLVE_RESULT_ERROR:
             ResolveError resolve_error = resolve_result.error;
-            ResolveError_display(&resolve_error, &interner, input, source_name);
+            ResolveError_display(&resolve_error, input, source_name);
             goto end;
         case RESOLVE_RESULT_SUCCESS:
     }
 
     for (size_t i = 0; i < decls.length; i++) {
-        Decl *decl = Arena_get(Decl, &arena, decls.offsets[i]);
-        Decl_display(decl, &arena, &interner);
+        Decl *decl = Arena_get(Decl, decls.offsets[i]);
+        Decl_display(decl);
         printf("\n");
     }
 
-    TypeCheckResult type_check_result = TypeChecker_decls(&checker, &decls, &arena);
+    TypeCheckResult type_check_result = TypeChecker_decls(&checker, &decls);
     switch (type_check_result.kind) {
         case TYPE_CHECK_RESULT_ERROR:
             TypeCheckError type_check_error = type_check_result.as.error;
-            TypeCheckResult_display(&type_check_error, &arena, &interner, input, source_name);
+            TypeCheckResult_display(&type_check_error, input, source_name);
             goto end;
         case TYPE_CHECK_RESULT_SUCCESS:
     }
@@ -57,8 +58,8 @@ end:
 parse_error_end:
     TypeChecker_free(&checker);
     Resolver_free(&resolver);
-    Arena_free(&arena);
-    Interner_free(&interner);
+    Arena_free();
+    Interner_free();
 }
 
 void repl() {

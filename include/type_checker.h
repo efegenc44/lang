@@ -2,8 +2,8 @@
 #define TYPE_CHECKER_H
 
 #include "type.h"
-#include "arena.h"
 #include "span.h"
+#include "arena.h"
 
 #define CHECK_TYPE_CHECK_ERROR(result)  \
     switch ((result).kind) {            \
@@ -72,15 +72,15 @@ typedef struct {
 
 TypeChecker TypeChecker_new();
 void TypeChecker_free(TypeChecker *checker);
-TypeCheckResult TypeChecker_collect_types(TypeChecker *checker, OffsetArray *decls, Arena *arena);
-TypeCheckResult TypeChecker_decls(TypeChecker *checker, OffsetArray *decls, Arena *arena);
-TypeCheckResult TypeChecker_eval(TypeChecker *checker, Arena *arena, Offset type_expr_index);
-TypeCheckResult TypeChecker_infer(TypeChecker *checker, Arena *arena, Offset expr_index);
-TypeCheckResult TypeChecker_expect(TypeChecker *checker, Arena *arena, Offset expr_index, Type expected, Span span);
-TypeCheckResult TypeChecker_check(TypeChecker *checker, Arena *arena, Offset expr_index, Type expected, Span span);
-TypeCheckResult TypeChecker_get_global_name(TypeChecker *checker, InternId name, Arena *arena);
-TypeCheckResult TypeChecker_get_global_type(TypeChecker *checker, InternId name, Arena *arena);
-void TypeCheckResult_display(TypeCheckError *error, Arena *arena, Interner *interner, char *input, char *source_name);
+TypeCheckResult TypeChecker_collect_types(TypeChecker *checker, OffsetArray *decls);
+TypeCheckResult TypeChecker_decls(TypeChecker *checker, OffsetArray *decls);
+TypeCheckResult TypeChecker_eval(TypeChecker *checker, Offset type_expr_index);
+TypeCheckResult TypeChecker_infer(TypeChecker *checker, Offset expr_index);
+TypeCheckResult TypeChecker_expect(TypeChecker *checker, Offset expr_index, Type expected, Span span);
+TypeCheckResult TypeChecker_check(TypeChecker *checker, Offset expr_index, Type expected, Span span);
+TypeCheckResult TypeChecker_get_global_name(TypeChecker *checker, InternId name);
+TypeCheckResult TypeChecker_get_global_type(TypeChecker *checker, InternId name);
+void TypeCheckResult_display(TypeCheckError *error, char *input, char *source_name);
 
 
 TypeCheckResult TypeCheckResult_success();

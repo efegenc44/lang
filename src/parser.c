@@ -11,14 +11,13 @@
          (result).kind != LEX_RESULT_DONE;              \
          (result) = Parser_peek_token(parser))          \
 
-Parser Parser_new(Lexer lexer, Arena *arena) {
+Parser Parser_new(Lexer lexer) {
     LexResult peek = Lexer_next(&lexer);
 
     return (Parser) {
         .lexer = lexer,
         .peek = peek,
         .decls = OffsetArray_new(),
-        .arena = arena
     };
 }
 
@@ -40,7 +39,7 @@ ParseResult Parser_type_arrow(Parser *parser) {
         Parser_advance_token(parser);
         BINDParseTE(to, Parser_type_arrow(parser));
         TypeExpr type_expr = TypeExpr_arrow(from, to, token.span);
-        from = Arena_put(parser->arena, type_expr);
+        from = Arena_put(type_expr);
     }
 
     return ParseResult_success_type_expr_index(from);
@@ -52,7 +51,7 @@ ParseResult Parser_type_primary(Parser *parser) {
         case TOKEN_IDENTIFIER:
             TypeExpr type_expr_ident = TypeExpr_identifier(token.as.lexeme_id, token.span);
             return ParseResult_success_expr_index(
-                Arena_put(parser->arena, type_expr_ident)
+                Arena_put(type_expr_ident)
             );
         case TOKEN_LEFT_PAREN:
             return Parser_finish_paren_type(parser);
@@ -99,7 +98,7 @@ ParseResult Parser_finish_product_type(Parser *parser, Span span) {
     DOParse(Parser_expect_kind(parser, TOKEN_RIGHT_CURLY));
 
     TypeExpr product = TypeExpr_product(names, type_exprs, span);
-    Offset offset = Arena_put(parser->arena, product);
+    Offset offset = Arena_put(product);
     return ParseResult_success_type_expr_index(offset);
 }
 
@@ -133,7 +132,7 @@ ParseResult Parser_finish_bind(Parser *parser) {
     DOParse(Parser_expect_kind(parser, TOKEN_EQUALS));
     BINDParse(expr, Parser_expr(parser));
     Decl bind = Decl_bind(token.as.lexeme_id, expr, token.span);
-    Offset offset = Arena_put(parser->arena, bind);
+    Offset offset = Arena_put(bind);
     OffsetArray_append(&parser->decls, offset);
 
     return ParseResult_success();
@@ -145,7 +144,7 @@ ParseResult Parser_finish_decl(Parser *parser) {
     DOParse(Parser_expect_kind(parser, TOKEN_COLON));
     BINDParseTE(type_expr, Parser_type_expr(parser));
     Decl decldecl = Decl_decldecl(token.as.lexeme_id, type_expr, token.span);
-    Offset offset = Arena_put(parser->arena, decldecl);
+    Offset offset = Arena_put(decldecl);
     OffsetArray_append(&parser->decls, offset);
 
     return ParseResult_success();
@@ -157,7 +156,7 @@ ParseResult Parser_finish_type(Parser *parser) {
     DOParse(Parser_expect_kind(parser, TOKEN_EQUALS));
     BINDParseTE(type_expr, Parser_type_expr(parser));
     Decl type = Decl_type(token.as.lexeme_id, type_expr, token.span);
-    Offset offset = Arena_put(parser->arena, type);
+    Offset offset = Arena_put(type);
     OffsetArray_append(&parser->decls, offset);
 
 
@@ -191,7 +190,7 @@ ParseResult Parser_binary(Parser *parser, size_t min_prec) {
                 size_t prec = PrecTable[bop] + (AssocTable[bop] != ASSOC_RIGHT);
                 BINDParse(rhs, Parser_binary(parser, prec));
                 Expr binary = Expr_binary(lhs, bop, rhs, token.span);
-                lhs = Arena_put(parser->arena, binary);
+                lhs = Arena_put(binary);
                 if (AssocTable[bop] == ASSOC_NONE) goto end;
                 break;
             default:
@@ -215,7 +214,7 @@ ParseResult Parser_application(Parser *parser) {
             case TOKEN_LEFT_CURLY:
                 BINDParse(argument, Parser_projection(parser));
                 Expr application = Expr_application(lhs, argument, token.span);
-                lhs = Arena_put(parser->arena, application);
+                lhs = Arena_put(application);
                 break;
             default:
                 goto end;
@@ -235,7 +234,7 @@ ParseResult Parser_projection(Parser *parser) {
                 Parser_advance_token(parser);
                 BINDParseT(name, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
                 Expr projection = Expr_projection(lhs, name.as.lexeme_id, token.span);
-                lhs = Arena_put(parser->arena, projection);
+                lhs = Arena_put(projection);
                 break;
             default:
                 goto end;
@@ -251,12 +250,12 @@ ParseResult Parser_primary(Parser *parser) {
         case TOKEN_INTEGER:
             Expr expr_int = Expr_integer(token.as.integer, token.span);
             return ParseResult_success_expr_index(
-                Arena_put(parser->arena, expr_int)
+                Arena_put(expr_int)
             );
         case TOKEN_IDENTIFIER:
             Expr expr_ident = Expr_identifier(token.as.lexeme_id, token.span);
             return ParseResult_success_expr_index(
-                Arena_put(parser->arena, expr_ident)
+                Arena_put(expr_ident)
             );
         case TOKEN_LEFT_PAREN:
             return Parser_finish_paren(parser);
@@ -283,7 +282,7 @@ ParseResult Parser_finish_let(Parser *parser) {
     DOParse(Parser_expect_kind(parser, TOKEN_KEYWORD_IN));
     BINDParse(rexpr, Parser_expr(parser));
     Expr let = Expr_let(variable.as.lexeme_id, vexpr, rexpr, variable.span);
-    ExprIndex index = Arena_put(parser->arena, let);
+    ExprIndex index = Arena_put(let);
 
     return ParseResult_success_expr_index(index);
 }
@@ -293,7 +292,7 @@ ParseResult Parser_finish_lambda(Parser *parser) {
     BINDParseT(variable, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
     BINDParse(expr, Parser_expr(parser));
     Expr lambda = Expr_lambda(variable.as.lexeme_id, expr, variable.span);
-    ExprIndex index = Arena_put(parser->arena, lambda);
+    ExprIndex index = Arena_put(lambda);
 
     return ParseResult_success_expr_index(index);
 }
@@ -326,7 +325,7 @@ ParseResult Parser_finish_product(Parser *parser, Span span) {
     DOParse(Parser_expect_kind(parser, TOKEN_RIGHT_CURLY));
 
     Expr product = Expr_product(names, exprs, span);
-    Offset offset = Arena_put(parser->arena, product);
+    Offset offset = Arena_put(product);
 
     return ParseResult_success_expr_index(offset);
 }
@@ -383,7 +382,7 @@ void ParseError_display(ParseError *error, Interner *interner, char *source, cha
     switch (error->kind) {
         case UNEXPECTED_TOKEN:
             printf("Unexpected token : '");
-            Token_display(&error->as.token, interner);
+            Token_display(&error->as.token);
             printf("'");
             break;
         case UNEXPECTED_EOF:

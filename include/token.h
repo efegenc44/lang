@@ -43,6 +43,6 @@ typedef struct {
 Token Token_kind(TokenKind kind, Span span);
 Token Token_integer(size_t integer, Span span);
 Token Token_identifier(InternId lexeme_id, Span span);
-void Token_display(Token *token, Interner *interner);
+void Token_display(Token *token);
 
 #endif // TOKEN_H

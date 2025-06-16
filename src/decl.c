@@ -37,24 +37,24 @@ Decl Decl_type(InternId name, Offset type_expr, Span span) {
     };
 }
 
-void Decl_display(Decl *decl, Arena *arena, Interner *interner) {
+void Decl_display(Decl *decl) {
     switch (decl->kind) {
         case DECL_BIND: {
-            printf("Bind: %s\n", Interner_get(interner, decl->as.bind.name));
-            Expr *expr = Arena_get(Expr, arena, decl->as.bind.expr);
-            Expr_display(expr, arena, interner, 1);
+            printf("Bind: %s\n", Interner_get(decl->as.bind.name));
+            Expr *expr = Arena_get(Expr, decl->as.bind.expr);
+            Expr_display(expr, 1);
             break;
         }
         case DECL_DECL: {
-            printf("Decl: %s\n", Interner_get(interner, decl->as.decldecl.name));
-            TypeExpr *type_expr = Arena_get(TypeExpr, arena, decl->as.decldecl.type_expr);
-            TypeExpr_display(type_expr, arena, interner, 1);
+            printf("Decl: %s\n", Interner_get(decl->as.decldecl.name));
+            TypeExpr *type_expr = Arena_get(TypeExpr, decl->as.decldecl.type_expr);
+            TypeExpr_display(type_expr, 1);
             break;
         }
         case DECL_TYPE: {
-            printf("Type: %s\n", Interner_get(interner, decl->as.type.name));
-            TypeExpr *type_expr = Arena_get(TypeExpr, arena, decl->as.type.type_expr);
-            TypeExpr_display(type_expr, arena, interner, 1);
+            printf("Type: %s\n", Interner_get(decl->as.type.name));
+            TypeExpr *type_expr = Arena_get(TypeExpr, decl->as.type.type_expr);
+            TypeExpr_display(type_expr, 1);
             break;
         }
     }

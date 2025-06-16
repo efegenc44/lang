@@ -6,13 +6,12 @@
 #include "lexer.h"
 #include "token.h"
 
-Lexer Lexer_new(char *source, Interner *interner) {
+Lexer Lexer_new(char *source) {
     return (Lexer) {
         .source = source,
         .cursor = 0,
         .row = 1,
         .column = 1,
-        .interner = interner
     };
 }
 
@@ -125,7 +124,7 @@ LexResult Lexer_identifier(Lexer *lexer) {
         token = Token_kind(TOKEN_KEYWORD_TYPE, span);
     } else {
         char *lexeme = strndup(&lexer->source[start_index], length);
-        InternId lexeme_id = Interner_register(lexer->interner, lexeme);
+        InternId lexeme_id = Interner_register(lexeme);
         token = Token_identifier(lexeme_id, span);
     }
 

@@ -3,8 +3,8 @@
 
 #include <stddef.h>
 
-#define Arena_put(arena, data) _Arena_put((arena), &(data), sizeof((data)))
-#define Arena_get(type, arena, offset) ((type *) Arena_get_ptr_offset((arena), (offset)))
+#define Arena_put(data) _Arena_put(&(data), sizeof((data)))
+#define Arena_get(type, offset) ((type *) Arena_get_ptr_offset((offset)))
 #define ARENA_DEFAULT_CAPACITY 256
 
 typedef struct {
@@ -12,6 +12,8 @@ typedef struct {
     size_t capacity;
     size_t length;
 } Arena;
+
+extern Arena arena;
 
 typedef size_t Offset;
 
@@ -23,10 +25,10 @@ typedef struct {
     size_t length;
 } OffsetArray;
 
-Arena Arena_new();
-void Arena_free(Arena *arena);
-Offset _Arena_put(Arena *arena, void *data, size_t size);
-void *Arena_get_ptr_offset(Arena *arena, Offset offset);
+void Arena_init();
+void Arena_free();
+Offset _Arena_put(void *data, size_t size);
+void *Arena_get_ptr_offset(Offset offset);
 
 OffsetArray OffsetArray_new();
 void OffsetArray_free(OffsetArray *array);

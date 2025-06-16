@@ -5,6 +5,7 @@
 #include "resolver.h"
 #include "bound.h"
 #include "arena.h"
+#include "interner.h"
 
 Resolver Resolver_new() {
     return (Resolver) {
@@ -20,9 +21,9 @@ void Resolver_free(Resolver *resolver) {
     StringArray_free(&resolver->defns);
 }
 
-ResolveResult Resolver_collect_names(Resolver *resolver, OffsetArray *decls, Arena *arena) {
+ResolveResult Resolver_collect_names(Resolver *resolver, OffsetArray *decls) {
     for (size_t i = 0; i < decls->length; i++) {
-        Decl *decl = Arena_get(Decl, arena, decls->offsets[i]);
+        Decl *decl = Arena_get(Decl, decls->offsets[i]);
         // TODO: Check for duplicates
         switch (decl->kind) {
             case DECL_BIND:
@@ -43,22 +44,22 @@ ResolveResult Resolver_collect_names(Resolver *resolver, OffsetArray *decls, Are
     return ResolveResult_success();
 }
 
-ResolveResult Resolver_decls(Resolver *resolver, OffsetArray *decls, Arena *arena) {
-    DOResolve(Resolver_collect_names(resolver, decls, arena));
+ResolveResult Resolver_decls(Resolver *resolver, OffsetArray *decls) {
+    DOResolve(Resolver_collect_names(resolver, decls));
     for (size_t i = 0; i < decls->length; i++) {
-        Decl *decl = Arena_get(Decl, arena, decls->offsets[i]);
+        Decl *decl = Arena_get(Decl, decls->offsets[i]);
         switch (decl->kind) {
             case DECL_BIND:
                 Bind *bind = &decl->as.bind;
-                DOResolve(Resolver_expr(resolver, decls, arena, bind->expr));
+                DOResolve(Resolver_expr(resolver, decls, bind->expr));
                 break;
             case DECL_DECL:
                 DeclDecl *decldecl = &decl->as.decldecl;
-                DOResolve(Resolver_type_expr(resolver, decls, arena, decldecl->type_expr));
+                DOResolve(Resolver_type_expr(resolver, decls, decldecl->type_expr));
                 break;
             case DECL_TYPE:
                 DeclType *type = &decl->as.type;
-                DOResolve(Resolver_type_expr(resolver, decls, arena, type->type_expr));
+                DOResolve(Resolver_type_expr(resolver, decls, type->type_expr));
                 break;
         }
     }
@@ -66,8 +67,8 @@ ResolveResult Resolver_decls(Resolver *resolver, OffsetArray *decls, Arena *aren
     return ResolveResult_success();
 }
 
-ResolveResult Resolver_type_expr(Resolver *resolver, OffsetArray *decls, Arena *arena, TypeExprIndex type_expr_index) {
-    TypeExpr *type_expr = Arena_get(TypeExpr, arena, type_expr_index);
+ResolveResult Resolver_type_expr(Resolver *resolver, OffsetArray *decls, TypeExprIndex type_expr_index) {
+    TypeExpr *type_expr = Arena_get(TypeExpr, type_expr_index);
     switch (type_expr->kind) {
         case TYPE_EXPR_IDENTIFIER:
             TypeIdentifier *ident = &type_expr->as.type_ident;
@@ -82,14 +83,14 @@ ResolveResult Resolver_type_expr(Resolver *resolver, OffsetArray *decls, Arena *
             break;
         case TYPE_EXPR_ARROW:
             TypeArrow *arrow = &type_expr->as.type_arrow;
-            DOResolve(Resolver_type_expr(resolver, decls, arena, arrow->from));
-            DOResolve(Resolver_type_expr(resolver, decls, arena, arrow->to));
+            DOResolve(Resolver_type_expr(resolver, decls, arrow->from));
+            DOResolve(Resolver_type_expr(resolver, decls, arrow->to));
             break;
         case TYPE_EXPR_PRODUCT:
             TypeProduct *product = &type_expr->as.type_product;
             for (size_t i = 0; i < product->names.length; i++) {
                 Offset offset = product->type_exprs.offsets[i];
-                DOResolve(Resolver_type_expr(resolver, decls, arena, offset));
+                DOResolve(Resolver_type_expr(resolver, decls, offset));
             }
             break;
     };
@@ -97,8 +98,8 @@ ResolveResult Resolver_type_expr(Resolver *resolver, OffsetArray *decls, Arena *
     return ResolveResult_success();
 }
 
-ResolveResult Resolver_expr(Resolver *resolver, OffsetArray *decls, Arena *arena, ExprIndex expr_index) {
-    Expr *expr = Arena_get(Expr, arena, expr_index);
+ResolveResult Resolver_expr(Resolver *resolver, OffsetArray *decls, ExprIndex expr_index) {
+    Expr *expr = Arena_get(Expr, expr_index);
     switch (expr->kind) {
         case EXPR_INTEGER:
             break;
@@ -122,36 +123,36 @@ ResolveResult Resolver_expr(Resolver *resolver, OffsetArray *decls, Arena *arena
             break;
         case EXPR_BINARY:
             Binary *binary = &expr->as.binary;
-            DOResolve(Resolver_expr(resolver, decls, arena, binary->lhs));
-            DOResolve(Resolver_expr(resolver, decls, arena, binary->rhs));
+            DOResolve(Resolver_expr(resolver, decls, binary->lhs));
+            DOResolve(Resolver_expr(resolver, decls, binary->rhs));
             break;
         case EXPR_LET:
             Let *let = &expr->as.let;
-            DOResolve(Resolver_expr(resolver, decls, arena, let->vexpr));
+            DOResolve(Resolver_expr(resolver, decls, let->vexpr));
             StringArray_append(&resolver->locals, let->variable);
-                DOResolve(Resolver_expr(resolver, decls, arena, let->rexpr));
+                DOResolve(Resolver_expr(resolver, decls, let->rexpr));
             StringArray_pop(&resolver->locals);
             break;
         case EXPR_LAMBDA:
             Lambda *lambda = &expr->as.lambda;
             StringArray_append(&resolver->locals, lambda->variable);
-                DOResolve(Resolver_expr(resolver, decls, arena, lambda->expr));
+                DOResolve(Resolver_expr(resolver, decls, lambda->expr));
             StringArray_pop(&resolver->locals);
             break;
         case EXPR_APPLICATION:
             Application *appl = &expr->as.application;
-            DOResolve(Resolver_expr(resolver, decls, arena, appl->function));
-            DOResolve(Resolver_expr(resolver, decls, arena, appl->argument));
+            DOResolve(Resolver_expr(resolver, decls, appl->function));
+            DOResolve(Resolver_expr(resolver, decls, appl->argument));
             break;
         case EXPR_PRODUCT:
             Product *product = &expr->as.product;
             for (size_t i = 0; i < product->names.length; i++) {
                 Offset offset = product->exprs.offsets[i];
-                DOResolve(Resolver_expr(resolver, decls, arena, offset));
+                DOResolve(Resolver_expr(resolver, decls, offset));
             }
             break;
         case EXPR_PROJECTION:
-            DOResolve(Resolver_expr(resolver, decls, arena, expr->as.projection.expr));
+            DOResolve(Resolver_expr(resolver, decls, expr->as.projection.expr));
             break;
     };
 
@@ -166,13 +167,13 @@ ResolveError ResolveError_ui(InternId identifier, Span span) {
     };
 }
 
-void ResolveError_display(ResolveError *error, Interner *interner, char *source, char *source_name) {
+void ResolveError_display(ResolveError *error, char *source, char *source_name) {
     Span_display_location(&error->span, source_name);
     printf(": error: ");
 
     switch (error->kind) {
         case UNBOUND_IDENTIFIER:
-            char *identifier = Interner_get(interner, error->identifier);
+            char *identifier = Interner_get(error->identifier);
             printf("Unbound identifier : '%s'", identifier);
             break;
     }

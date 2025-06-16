@@ -3,33 +3,35 @@
 
 #include "arena.h"
 
-Arena Arena_new() {
-    return (Arena) {
+Arena arena = {0};
+
+void Arena_init() {
+    arena = (Arena) {
         .data = malloc(ARENA_DEFAULT_CAPACITY),
         .capacity = ARENA_DEFAULT_CAPACITY,
         .length = 0
     };
 }
 
-void Arena_free(Arena *arena) {
-    free(arena->data);
+void Arena_free() {
+    free(arena.data);
 }
 
-Offset _Arena_put(Arena *arena, void *data, size_t size) {
-    if (arena->length + size > arena->capacity) {
-        arena->capacity *= 2;
-        arena->data = realloc(arena->data, arena->capacity);
+Offset _Arena_put(void *data, size_t size) {
+    if (arena.length + size > arena.capacity) {
+        arena.capacity *= 2;
+        arena.data = realloc(arena.data, arena.capacity);
     }
 
-    Offset offset = arena->length;
-    memcpy(arena->data + arena->length, data, size);
-    arena->length += size;
+    Offset offset = arena.length;
+    memcpy(arena.data + arena.length, data, size);
+    arena.length += size;
 
     return offset;
 }
 
-void *Arena_get_ptr_offset(Arena *arena, Offset offset) {
-    return arena->data + offset;
+void *Arena_get_ptr_offset(Offset offset) {
+    return arena.data + offset;
 }
 
 OffsetArray OffsetArray_new() {
