@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "type_checker.h"
 #include "arena.h"
@@ -80,7 +81,10 @@ TypeCheckResult TypeChecker_eval(TypeChecker *checker, Offset type_expr_index) {
             Bound bound = identifier->bound;
             switch (bound.kind) {
                 case BOUND_LOCAL:
-                    Type local = checker->locals.types[bound.id];
+                    if (bound.id < 0 || bound.id >= checker->locals.length) {
+                        assert(0);
+                    }
+                    Type local = checker->locals.types[checker->locals.length - 1 - bound.id];
                     return TypeCheckResult_success_type(local);
                 case BOUND_GLOBAL: {
                     BINDTypeCheck(t, TypeChecker_get_global_type(checker, bound.id));
@@ -109,8 +113,8 @@ TypeCheckResult TypeChecker_eval(TypeChecker *checker, Offset type_expr_index) {
             }
             return TypeCheckResult_success_type(Type_product(names, types));
         case TYPE_EXPR_LAMBDA:
-            // TODO: capture environment
-            Type forall_type = Type_forall(texpr->as.type_lambda.variable, texpr->as.type_lambda.expr);
+            // TODO: memory leak
+            Type forall_type = Type_forall(texpr->as.type_lambda.variable, texpr->as.type_lambda.expr, TypeArray_clone(&checker->locals));
             return TypeCheckResult_success_type(forall_type);
         case TYPE_EXPR_APPLICATION:
             TypeApplication *application = &texpr->as.type_applicaton;
@@ -118,10 +122,20 @@ TypeCheckResult TypeChecker_eval(TypeChecker *checker, Offset type_expr_index) {
             if (function.kind != TYPE_FORALL) {
                 return TypeCheckResult_error_umk(texpr->sign_span);
             }
+
             BINDTypeCheck(argument, TypeChecker_eval(checker, application->argument));
+            for (size_t i = 0; i < function.as.forall.closure.length; i++) {
+                TypeArray_append(&checker->locals, function.as.forall.closure.types[i]);
+            }
             TypeArray_append(&checker->locals, argument);
+
                 BINDTypeCheck(result, TypeChecker_eval(checker, function.as.forall.body_expr));
+
             TypeArray_pop(&checker->locals);
+            for (size_t i = 0; i < function.as.forall.closure.length; i++) {
+                TypeArray_pop(&checker->locals);
+            }
+
             return TypeCheckResult_success_type(result);
     }
     assert(0);

@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "type.h"
 #include "arena.h"
@@ -31,6 +32,16 @@ Type TypeArray_pop(TypeArray *array) {
     return array->types[array->length-- - 1];
 }
 
+TypeArray TypeArray_clone(TypeArray *array) {
+    TypeArray cloned = (TypeArray) {
+        .types = malloc(array->length * sizeof(Type)),
+        .capacity = array->capacity,
+        .length = array->length
+    };
+
+    cloned.types = memcpy(cloned.types, array->types, array->length * sizeof(Type));
+    return cloned;
+}
 
 Type Type_isize() {
     return (Type) {
@@ -58,12 +69,13 @@ Type Type_arrow(Offset input, Offset output) {
     };
 }
 
-Type Type_forall(InternId variable, Offset body_expr) {
+Type Type_forall(InternId variable, Offset body_expr, TypeArray closure) {
     return (Type) {
         .kind = TYPE_FORALL,
         .as.forall = {
             .variable = variable,
-            .body_expr = body_expr
+            .body_expr = body_expr,
+            .closure = closure
         }
     };
 }

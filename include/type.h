@@ -36,6 +36,7 @@ typedef union {
     struct {
         InternId variable;
         Offset body_expr;
+        TypeArray closure;
     } forall;
 } TypeData;
 
@@ -48,11 +49,12 @@ TypeArray TypeArray_new();
 void TypeArray_free(TypeArray *array);
 void TypeArray_append(TypeArray *array, Type type);
 Type TypeArray_pop(TypeArray *array);
+TypeArray TypeArray_clone(TypeArray *array);
 
 Type Type_isize();
 Type Type_product(StringArray names, TypeArray types);
 Type Type_arrow(Offset input, Offset output);
-Type Type_forall(InternId variable, Offset body_expr);
+Type Type_forall(InternId variable, Offset body_expr, TypeArray closure);
 bool Type_eq(Type *lhs, Type *rhs);
 void Type_display(Type *type);
 

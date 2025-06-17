@@ -1,11 +1,13 @@
 type Box  = \a { slot : a }
 type Box2 = \a \b { slot : a b }
+type Box3 = \a \b \c { slot : Box4 a c b }
+type Box4 = \a \b \c { slot : a c b }
 
 type A = { a : {}; b : {}; c : B }
 type B = { b : { a : {} } }
 
-decl g : Box2 Box {}
-defn g = { slot = {} }
+decl g : Box3 Box2 Box {}
+defn g = { slot = { slot = { slot = { slot = {} } } } }
 
 decl x : A
 defn x = { b = {}; c = { b = { a = {} } }; a = {} }
