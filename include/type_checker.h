@@ -38,6 +38,7 @@ typedef enum {
     TYPE_CHECK_ERROR_EXPECTED_FUNCTION,
     TYPE_CHECK_ERROR_EXPECTED_PRODUCT,
     TYPE_CHECK_ERROR_DOES_NOT_HAVE_FIELD,
+    TYPE_CHECK_ERROR_UNMATCHED_KIND,
 } TypeCheckErrorKind;
 
 typedef union {
@@ -89,5 +90,6 @@ TypeCheckResult TypeCheckResult_error_unmatched(Type expected, Type found, Span 
 TypeCheckResult TypeCheckResult_error_ef(Type found, Span span);
 TypeCheckResult TypeCheckResult_error_ep(Type found, Span span);
 TypeCheckResult TypeCheckResult_error_no_field(InternId field, Span span);
+TypeCheckResult TypeCheckResult_error_umk(Span span);
 
 #endif // TYPE_CHECKER_H

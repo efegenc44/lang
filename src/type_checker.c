@@ -80,8 +80,8 @@ TypeCheckResult TypeChecker_eval(TypeChecker *checker, Offset type_expr_index) {
             Bound bound = identifier->bound;
             switch (bound.kind) {
                 case BOUND_LOCAL:
-                    // TODO: Type variables.
-                    assert(0);
+                    Type local = checker->locals.types[bound.id];
+                    return TypeCheckResult_success_type(local);
                 case BOUND_GLOBAL: {
                     BINDTypeCheck(t, TypeChecker_get_global_type(checker, bound.id));
                     return TypeCheckResult_success_type(t);
@@ -108,6 +108,21 @@ TypeCheckResult TypeChecker_eval(TypeChecker *checker, Offset type_expr_index) {
                 StringArray_append(&names, product->names.strings[i]);
             }
             return TypeCheckResult_success_type(Type_product(names, types));
+        case TYPE_EXPR_LAMBDA:
+            // TODO: capture environment
+            Type forall_type = Type_forall(texpr->as.type_lambda.variable, texpr->as.type_lambda.expr);
+            return TypeCheckResult_success_type(forall_type);
+        case TYPE_EXPR_APPLICATION:
+            TypeApplication *application = &texpr->as.type_applicaton;
+            BINDTypeCheck(function, TypeChecker_eval(checker, application->function));
+            if (function.kind != TYPE_FORALL) {
+                return TypeCheckResult_error_umk(texpr->sign_span);
+            }
+            BINDTypeCheck(argument, TypeChecker_eval(checker, application->argument));
+            TypeArray_append(&checker->locals, argument);
+                BINDTypeCheck(result, TypeChecker_eval(checker, function.as.forall.body_expr));
+            TypeArray_pop(&checker->locals);
+            return TypeCheckResult_success_type(result);
     }
     assert(0);
 }
@@ -321,6 +336,10 @@ void TypeCheckResult_display(TypeCheckError *error, char *source, char *source_n
             printf("%s", Interner_get(error->as.field));
             printf("'");
             break;
+        case TYPE_CHECK_ERROR_UNMATCHED_KIND:
+            // TODO: better error message here
+            printf("Unexpected kind");
+            break;
     }
 
     printf(" (at type checking)\n");
@@ -382,6 +401,16 @@ TypeCheckResult TypeCheckResult_error_no_field(InternId field, Span span) {
         .as.error = {
             .kind = TYPE_CHECK_ERROR_DOES_NOT_HAVE_FIELD,
             .as.field = field,
+            .span = span
+        }
+    };
+}
+
+TypeCheckResult TypeCheckResult_error_umk(Span span) {
+    return (TypeCheckResult) {
+        .kind = TYPE_CHECK_RESULT_ERROR,
+        .as.error = {
+            .kind = TYPE_CHECK_ERROR_UNMATCHED_KIND,
             .span = span
         }
     };

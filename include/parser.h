@@ -94,7 +94,9 @@ typedef struct {
 
 Parser Parser_new(Lexer lexer);
 ParseResult Parser_type_expr(Parser *parser);
+ParseResult Parser_finish_type_lambda(Parser *parser);
 ParseResult Parser_type_arrow(Parser *parser);
+ParseResult Parser_type_application(Parser *parser);
 ParseResult Parser_type_primary(Parser *parser);
 ParseResult Parser_finish_paren_type(Parser *parser);
 ParseResult Parser_finish_product_type(Parser *parser, Span span);

@@ -22,12 +22,28 @@ Parser Parser_new(Lexer lexer) {
 }
 
 ParseResult Parser_type_expr(Parser *parser) {
-    return Parser_type_arrow(parser);
+    Token token = Parser_peek_token(parser).as.token;
+    switch (token.kind) {
+        case TOKEN_BACKSLASH:
+            return Parser_finish_type_lambda(parser);
+        default:
+            return Parser_type_arrow(parser);
+    }
+}
+
+ParseResult Parser_finish_type_lambda(Parser *parser) {
+    Parser_advance_token(parser);
+    BINDParseT(variable, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
+    BINDParse(type_expr, Parser_type_expr(parser));
+    TypeExpr lambda = TypeExpr_lambda(variable.as.lexeme_id, type_expr, variable.span);
+    TypeExprIndex index = Arena_put(lambda);
+
+    return ParseResult_success_type_expr_index(index);
 }
 
 ParseResult Parser_type_arrow(Parser *parser) {
     // Anonymous product and anonymous sum? types ?
-    BINDParseTE(from, Parser_type_primary(parser));
+    BINDParseTE(from, Parser_type_application(parser));
     LexResult result = Parser_peek_token(parser);
     CHECK_LEX_ERROR(result);
     if (result.kind == LEX_RESULT_DONE) {
@@ -43,6 +59,28 @@ ParseResult Parser_type_arrow(Parser *parser) {
     }
 
     return ParseResult_success_type_expr_index(from);
+}
+
+ParseResult Parser_type_application(Parser *parser) {
+    BINDParse(lhs, Parser_type_primary(parser));
+    WHILE_STILL_TOKEN_LEFT(result) {
+        CHECK_LEX_ERROR(result);
+        Token token = result.as.token;
+        switch (token.kind) {
+            // Type primary expression starting tokens
+            case TOKEN_IDENTIFIER:
+            case TOKEN_LEFT_PAREN:
+            case TOKEN_LEFT_CURLY:
+                BINDParse(argument, Parser_type_primary(parser));
+                TypeExpr application = TypeExpr_application(lhs, argument, token.span);
+                lhs = Arena_put(application);
+                break;
+            default:
+                goto end;
+        }
+    }
+end:
+    return ParseResult_success_expr_index(lhs);
 }
 
 ParseResult Parser_type_primary(Parser *parser) {

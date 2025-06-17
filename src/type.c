@@ -5,6 +5,7 @@
 #include "type.h"
 #include "arena.h"
 #include "interner.h"
+#include "type_expr.h"
 
 TypeArray TypeArray_new() {
     return (TypeArray) {
@@ -57,6 +58,16 @@ Type Type_arrow(Offset input, Offset output) {
     };
 }
 
+Type Type_forall(InternId variable, Offset body_expr) {
+    return (Type) {
+        .kind = TYPE_FORALL,
+        .as.forall = {
+            .variable = variable,
+            .body_expr = body_expr
+        }
+    };
+}
+
 bool Type_eq(Type *lhs, Type *rhs) {
     switch (lhs->kind) {
         case TYPE_ISIZE:
@@ -97,6 +108,14 @@ bool Type_eq(Type *lhs, Type *rhs) {
                 return false;
             }
             return true;
+        case TYPE_FORALL: {
+            if (rhs->kind != TYPE_FORALL) return false;
+
+            TypeExpr *lhs_expr = Arena_get(TypeExpr, lhs->as.forall.body_expr);
+            TypeExpr *rhs_expr = Arena_get(TypeExpr, rhs->as.forall.body_expr);
+
+            return TypeExpr_eq(lhs_expr, rhs_expr);
+        }
     }
     assert(0);
 }
@@ -127,6 +146,11 @@ void Type_display(Type *type) {
                 }
             }
             printf("}");
+            break;
+        case TYPE_FORALL:
+            printf("forall ");
+            printf("%s \n", Interner_get(type->as.forall.variable));
+            TypeExpr_display(Arena_get(TypeExpr, type->as.forall.body_expr), 0);
             break;
     }
 }

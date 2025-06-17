@@ -23,6 +23,7 @@
 
 typedef struct {
     StringArray locals;
+    StringArray type_locals;
     // TODO: Use hash map for declarations
     StringArray types;
     StringArray defns;

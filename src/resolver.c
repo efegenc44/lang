@@ -10,6 +10,7 @@
 Resolver Resolver_new() {
     return (Resolver) {
         .locals = StringArray_new(),
+        .type_locals = StringArray_new(),
         .types = StringArray_new(),
         .defns = StringArray_new(),
     };
@@ -17,6 +18,7 @@ Resolver Resolver_new() {
 
 void Resolver_free(Resolver *resolver) {
     StringArray_free(&resolver->locals);
+    StringArray_free(&resolver->type_locals);
     StringArray_free(&resolver->types);
     StringArray_free(&resolver->defns);
 }
@@ -73,14 +75,21 @@ ResolveResult Resolver_type_expr(Resolver *resolver, OffsetArray *decls, TypeExp
         case TYPE_EXPR_IDENTIFIER:
             TypeIdentifier *ident = &type_expr->as.type_ident;
             InternId intern_id = ident->identifier_id;
-            FindResult r = Resolver_local(&resolver->types, intern_id);
-            if (r.success) {
-                ident->bound = Bound_global(intern_id);
-            } else {
-                ResolveError error = ResolveError_ui(intern_id, type_expr->sign_span);
-                return ResolveResult_error(error);
-            }
-            break;
+               // Look in local scope
+                FindResult result = Resolver_local(&resolver->type_locals, intern_id);
+                if (result.success) {
+                    ident->bound = Bound_local(result.id);
+                } else {
+                    // Look in global scope
+                    FindResult r = Resolver_local(&resolver->types, intern_id);
+                    if (r.success) {
+                        ident->bound = Bound_global(intern_id);
+                    } else {
+                        ResolveError error = ResolveError_ui(intern_id, type_expr->sign_span);
+                        return ResolveResult_error(error);
+                    }
+                }
+                break;
         case TYPE_EXPR_ARROW:
             TypeArrow *arrow = &type_expr->as.type_arrow;
             DOResolve(Resolver_type_expr(resolver, decls, arrow->from));
@@ -92,6 +101,17 @@ ResolveResult Resolver_type_expr(Resolver *resolver, OffsetArray *decls, TypeExp
                 Offset offset = product->type_exprs.offsets[i];
                 DOResolve(Resolver_type_expr(resolver, decls, offset));
             }
+            break;
+        case TYPE_EXPR_LAMBDA:
+            TypeLambda *lambda = &type_expr->as.type_lambda;
+            StringArray_append(&resolver->type_locals, lambda->variable);
+                DOResolve(Resolver_type_expr(resolver, decls, lambda->expr));
+            StringArray_pop(&resolver->type_locals);
+            break;
+        case TYPE_EXPR_APPLICATION:
+            TypeApplication *application = &type_expr->as.type_applicaton;
+            DOResolve(Resolver_type_expr(resolver, decls, application->function));
+            DOResolve(Resolver_type_expr(resolver, decls, application->argument));
             break;
     };
 
