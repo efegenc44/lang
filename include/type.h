@@ -22,6 +22,7 @@ typedef enum {
     TYPE_ARROW,
     TYPE_PRODUCT,
     TYPE_FORALL,
+    TYPE_KIND,
 } TypeKind;
 
 typedef union {
@@ -38,6 +39,7 @@ typedef union {
         Offset body_expr;
         TypeArray closure;
     } forall;
+    InternId kind;
 } TypeData;
 
 struct Type {
@@ -55,6 +57,7 @@ Type Type_isize();
 Type Type_product(StringArray names, TypeArray types);
 Type Type_arrow(Offset input, Offset output);
 Type Type_forall(InternId variable, Offset body_expr, TypeArray closure);
+Type Type_kind(InternId kind);
 bool Type_eq(Type *lhs, Type *rhs);
 void Type_display(Type *type);
 

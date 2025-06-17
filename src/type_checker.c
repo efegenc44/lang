@@ -251,17 +251,50 @@ TypeCheckResult TypeChecker_check(TypeChecker *checker, Offset expr_index, Type 
             }
         }
         case EXPR_LAMBDA: {
-            if (expected.kind != TYPE_ARROW) {
-                // TODO: fix error message, it is reversed
-                return TypeCheckResult_error_ef(expected, expr->sign_span);
-            }
             Lambda *lambda = &expr->as.lambda;
-            Type *input = Arena_get(Type, expected.as.function.input);
-            Type *output = Arena_get(Type, expected.as.function.output);
-            TypeArray_append(&checker->locals, *input);
-                DOTypeCheck(TypeChecker_check(checker, lambda->expr, *output, span));
-            TypeArray_pop(&checker->locals);
-            return TypeCheckResult_success();
+            switch (expected.kind) {
+                case TYPE_ARROW: {
+                    Type *input = Arena_get(Type, expected.as.function.input);
+                    Type *output = Arena_get(Type, expected.as.function.output);
+                    TypeArray_append(&checker->locals, *input);
+                        DOTypeCheck(TypeChecker_check(checker, lambda->expr, *output, span));
+                    TypeArray_pop(&checker->locals);
+                    return TypeCheckResult_success();
+                } break;
+                case TYPE_FORALL: {
+                    while (expected.kind == TYPE_FORALL) {
+                        size_t closure_length = expected.as.forall.closure.length;
+                        for (size_t i = 0; i < closure_length; i++) {
+                            TypeArray_append(&checker->locals, expected.as.forall.closure.types[i]);
+                        }
+
+                        TypeArray_append(&checker->locals, Type_kind(expected.as.forall.variable));
+                            BINDTypeCheck(res, TypeChecker_eval(checker, expected.as.forall.body_expr));
+                            expected = res;
+                        TypeArray_pop(&checker->locals);
+
+                        for (size_t i = 0; i < closure_length; i++) {
+                            TypeArray_pop(&checker->locals);
+                        }
+                    }
+
+                    if (expected.kind != TYPE_ARROW) {
+                        // TODO: fix error message, it is reversed
+                        return TypeCheckResult_error_ef(expected, expr->sign_span);
+                    }
+
+                    Type *input = Arena_get(Type, expected.as.function.input);
+                    Type *output = Arena_get(Type, expected.as.function.output);
+                    TypeArray_append(&checker->locals, *input);
+                        DOTypeCheck(TypeChecker_check(checker, lambda->expr, *output, span));
+                    TypeArray_pop(&checker->locals);
+                    return TypeCheckResult_success();
+                } break;
+                default: {
+                    // TODO: fix error message, it is reversed
+                    return TypeCheckResult_error_ef(expected, expr->sign_span);
+                }
+            }
         }
         case EXPR_APPLICATION: {
             BINDTypeCheck(app, TypeChecker_infer(checker, expr_index))

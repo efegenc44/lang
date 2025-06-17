@@ -17,3 +17,7 @@ defn f = \g \a (g a).b
 
 decl main : {} -> { a : {} }
 defn main = \u (f (\a a.c) x)
+
+decl id : \x \y
+           x -> x
+defn id = \n n

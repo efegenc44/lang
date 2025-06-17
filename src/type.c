@@ -23,7 +23,7 @@ void TypeArray_free(TypeArray *array) {
 void TypeArray_append(TypeArray *array, Type type) {
     if (array->capacity == array->length) {
         array->capacity *= 2;
-        array->types = realloc(array->types, array->capacity*sizeof(char *));
+        array->types = realloc(array->types, array->capacity*sizeof(Type));
     }
     array->types[array->length++] = type;
 }
@@ -80,6 +80,13 @@ Type Type_forall(InternId variable, Offset body_expr, TypeArray closure) {
     };
 }
 
+Type Type_kind(InternId kind) {
+    return (Type) {
+        .kind = TYPE_KIND,
+        .as.kind = kind
+    };
+}
+
 bool Type_eq(Type *lhs, Type *rhs) {
     switch (lhs->kind) {
         case TYPE_ISIZE:
@@ -128,6 +135,10 @@ bool Type_eq(Type *lhs, Type *rhs) {
 
             return TypeExpr_eq(lhs_expr, rhs_expr);
         }
+        case TYPE_KIND: {
+            if (rhs->kind != TYPE_KIND) return false;
+            return lhs->as.kind == rhs->as.kind;
+        }
     }
     assert(0);
 }
@@ -163,6 +174,9 @@ void Type_display(Type *type) {
             printf("forall ");
             printf("%s \n", Interner_get(type->as.forall.variable));
             TypeExpr_display(Arena_get(TypeExpr, type->as.forall.body_expr), 0);
+            break;
+        case TYPE_KIND:
+            printf("<%s>", Interner_get(type->as.kind));
             break;
     }
 }
