@@ -79,6 +79,7 @@ TypeCheckResult TypeChecker_eval(TypeChecker *checker, Offset type_expr_index);
 TypeCheckResult TypeChecker_infer(TypeChecker *checker, Offset expr_index);
 TypeCheckResult TypeChecker_expect(TypeChecker *checker, Offset expr_index, Type expected, Span span);
 TypeCheckResult TypeChecker_check(TypeChecker *checker, Offset expr_index, Type expected, Span span);
+TypeCheckResult TypeChecker_infer_kind(TypeChecker *checker, Offset type_expr_index, Span span);
 TypeCheckResult TypeChecker_get_global_name(TypeChecker *checker, InternId name);
 TypeCheckResult TypeChecker_get_global_type(TypeChecker *checker, InternId name);
 void TypeCheckResult_display(TypeCheckError *error, char *input, char *source_name);

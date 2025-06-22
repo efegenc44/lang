@@ -25,10 +25,17 @@ ParseResult Parser_kind_expr(Parser *parser) {
     BINDLex(token, Parser_advance_token(parser));
     TypeExprIndex from;
     switch (token.kind) {
-        case TOKEN_STAR:
+        case TOKEN_STAR: {
             TypeExpr kind = TypeExpr_kind(token.span);
             from = Arena_put(kind);
             break;
+        }
+        case TOKEN_LEFT_PAREN: {
+            BINDParseTE(kind, Parser_kind_expr(parser));
+            from = kind;
+            DOParse(Parser_expect_kind(parser, TOKEN_RIGHT_PAREN));
+            break;
+        }
         default:
             return ParseResult_error(ParseError_ut(token));
     }

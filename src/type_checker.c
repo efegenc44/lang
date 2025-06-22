@@ -30,7 +30,7 @@ TypeCheckResult TypeChecker_collect_types(TypeChecker *checker, OffsetArray *dec
         for (size_t i = 0; i < decls->length; i++) {
         Decl *decl = Arena_get(Decl, decls->offsets[i]);
         switch (decl->kind) {
-            case DECL_BIND: continue;
+            case DECL_BIND: break;
             case DECL_DECL: {
                 DeclDecl *decldecl = &decl->as.decldecl;
                 StringArray_append(&checker->global_names, decldecl->name);
@@ -61,10 +61,12 @@ TypeCheckResult TypeChecker_decls(TypeChecker *checker, OffsetArray *decls) {
                 break;
             case DECL_DECL:
                 DeclDecl *decldecl = &decl->as.decldecl;
+                DOTypeCheck(TypeChecker_infer_kind(checker, decldecl->type_expr, decl->sign_span))
                 DOTypeCheck(TypeChecker_eval(checker, decldecl->type_expr));
                 break;
             case DECL_TYPE:
                 DeclType *type = &decl->as.type;
+                DOTypeCheck(TypeChecker_infer_kind(checker, type->type_expr, decl->sign_span))
                 DOTypeCheck(TypeChecker_eval(checker, type->type_expr));
                 break;
         }
@@ -118,7 +120,7 @@ TypeCheckResult TypeChecker_eval(TypeChecker *checker, Offset type_expr_index) {
             BINDTypeCheck(kind, TypeChecker_eval(checker, texpr->as.type_lambda.kind));
             Type forall_type = Type_forall(
                 texpr->as.type_lambda.variable,
-                // Maybe eval here (kind check)
+                // Maybe eval here
                 texpr->as.type_lambda.expr,
                 Arena_put(kind),
                 TypeArray_clone(&checker->locals)
@@ -167,7 +169,7 @@ TypeCheckResult TypeChecker_eval(TypeChecker *checker, Offset type_expr_index) {
             }
 
         case TYPE_EXPR_KIND:
-            return TypeCheckResult_success_type(Type_kind(0));
+            return TypeCheckResult_success_type(Type_kind());
     }
     assert(0);
 }
@@ -365,6 +367,82 @@ TypeCheckResult TypeChecker_check(TypeChecker *checker, Offset expr_index, Type 
             }
             return TypeCheckResult_error_no_field(projection->name, expr->sign_span);
         }
+    }
+    assert(0);
+}
+
+TypeCheckResult TypeChecker_infer_kind(TypeChecker *checker, Offset type_expr_index, Span span) {
+    TypeExpr *texpr = Arena_get(TypeExpr, type_expr_index);
+    switch (texpr->kind) {
+        case TYPE_EXPR_IDENTIFIER: {
+            TypeIdentifier *identifier = &texpr->as.type_ident;
+            Bound bound = identifier->bound;
+            switch (bound.kind) {
+                case BOUND_LOCAL: {
+                    Type t = checker->locals.types[checker->locals.length - 1 - bound.id];
+                    return TypeCheckResult_success_type(t);
+                }
+                case BOUND_GLOBAL: {
+                    // TODO: Typeclasses?
+                    Type kind;
+                    for (size_t i = 0; i < checker->global_type_names.length; i++) {
+                        if (checker->global_type_names.strings[i] == bound.id) {
+                            Offset offset = checker->type_name_type_exprs.offsets[i];
+                            BINDTypeCheck(kynd, TypeChecker_infer_kind(checker, offset, span));
+                            kind = kynd;
+                            break;
+                        }
+                    }
+                    return TypeCheckResult_success_type(kind);
+                }
+                case BOUND_UNDETERMINED:
+                    assert(0);
+            }
+        }
+        case TYPE_EXPR_ARROW: {
+            DOTypeCheck(TypeChecker_infer_kind(checker, texpr->as.type_arrow.from, span));
+            DOTypeCheck(TypeChecker_infer_kind(checker, texpr->as.type_arrow.to, span));
+            return TypeCheckResult_success_type(Type_kind());
+        }
+        case TYPE_EXPR_PRODUCT: {
+            for (size_t i = 0; i < texpr->as.type_product.type_exprs.length; i++) {
+                DOTypeCheck(TypeChecker_infer_kind(checker, texpr->as.type_product.type_exprs.offsets[i], span));
+            }
+
+            return TypeCheckResult_success_type(Type_kind());
+        }
+        case TYPE_EXPR_LAMBDA: {
+            TypeLambda *lambda = &texpr->as.type_lambda;
+
+            BINDTypeCheck(kind, TypeChecker_eval(checker, lambda->kind));
+            TypeArray_append(&checker->locals, kind);
+                BINDTypeCheck(output, TypeChecker_infer_kind(checker, lambda->expr, span));
+            TypeArray_pop(&checker->locals);
+
+            Type lambda_kind = Type_arrow(Arena_put(kind), Arena_put(output));
+            return TypeCheckResult_success_type(lambda_kind);
+        }
+        case TYPE_EXPR_APPLICATION: {
+            TypeApplication *appl = &texpr->as.type_applicaton;
+
+            BINDTypeCheck(function, TypeChecker_infer_kind(checker, appl->function, span));
+            BINDTypeCheck(argument, TypeChecker_infer_kind(checker, appl->argument, span));
+
+            if (function.kind != TYPE_ARROW) {
+                return TypeCheckResult_error_ef(function, span);
+            }
+
+            Type *input = Arena_get(Type, function.as.function.input);
+            Type *output = Arena_get(Type, function.as.function.output);
+
+            if (!Type_eq(input, &argument)) {
+                return TypeCheckResult_error_unmatched(*input, argument, texpr->sign_span);
+            }
+
+            return TypeCheckResult_success_type(*output);
+        }
+
+        case TYPE_EXPR_KIND: assert(0);
     }
     assert(0);
 }

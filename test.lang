@@ -4,10 +4,10 @@ type Box = \a : *
 type Box2 = \a : * -> * \b : *
     { slot : a b }
 
-type Box3 = \a : * -> * -> *  \b : * \c : * -> *
+type Box3 = \a : (* -> *) -> * -> * \b : * -> *  \c : *
     { slot : Box4 a c b }
 
-type Box4 = \a : * -> * -> * \b : * \c : * -> *
+type Box4 = \a : (* -> *) -> * -> * \b : * \c : * -> *
     { slot : a c b }
 
 type A = { a : {}; b : {}; c : B }
@@ -29,6 +29,6 @@ decl id : \x : * \y : *
            x -> x
 defn id = \n n
 
-decl idd : \m : * -> * -> * \t: * \x: t
+decl idd : \m : * -> * -> * \t: * \x: *
             m t x -> (m t x -> t) -> t
 defn idd = \a \f f a

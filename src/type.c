@@ -201,6 +201,7 @@ void Type_display(Type *type) {
             printf("*");
             break;
         case TYPE_VAR:
+            printf("<>");
             // printf("<%s>", Interner_get(type->as.type_var.var));
             break;
     }
