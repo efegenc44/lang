@@ -93,6 +93,7 @@ typedef struct {
 } ParseResult;
 
 Parser Parser_new(Lexer lexer);
+ParseResult Parser_kind_expr(Parser *parser);
 ParseResult Parser_type_expr(Parser *parser);
 ParseResult Parser_finish_type_lambda(Parser *parser);
 ParseResult Parser_type_arrow(Parser *parser);

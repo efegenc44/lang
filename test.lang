@@ -1,7 +1,14 @@
-type Box  = \a { slot : a }
-type Box2 = \a \b { slot : a b }
-type Box3 = \a \b \c { slot : Box4 a c b }
-type Box4 = \a \b \c { slot : a c b }
+type Box = \a : *
+    { slot : a }
+
+type Box2 = \a : * -> * \b : *
+    { slot : a b }
+
+type Box3 = \a : * -> * -> *  \b : * \c : * -> *
+    { slot : Box4 a c b }
+
+type Box4 = \a : * -> * -> * \b : * \c : * -> *
+    { slot : a c b }
 
 type A = { a : {}; b : {}; c : B }
 type B = { b : { a : {} } }
@@ -18,6 +25,10 @@ defn f = \g \a (g a).b
 decl main : {} -> { a : {} }
 defn main = \u (f (\a a.c) x)
 
-decl id : \x \y
+decl id : \x : * \y : *
            x -> x
 defn id = \n n
+
+decl idd : \m : * -> * -> * \t: * \x: t
+            m t x -> (m t x -> t) -> t
+defn idd = \a \f f a

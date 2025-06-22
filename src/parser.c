@@ -21,6 +21,35 @@ Parser Parser_new(Lexer lexer) {
     };
 }
 
+ParseResult Parser_kind_expr(Parser *parser) {
+    BINDLex(token, Parser_advance_token(parser));
+    TypeExprIndex from;
+    switch (token.kind) {
+        case TOKEN_STAR:
+            TypeExpr kind = TypeExpr_kind(token.span);
+            from = Arena_put(kind);
+            break;
+        default:
+            return ParseResult_error(ParseError_ut(token));
+    }
+
+    LexResult result = Parser_peek_token(parser);
+    CHECK_LEX_ERROR(result);
+    if (result.kind == LEX_RESULT_DONE) {
+        return ParseResult_success_type_expr_index(from);
+    }
+    Token peek = result.as.token;
+
+    if (peek.kind == TOKEN_RIGHT_ARROW) {
+        Parser_advance_token(parser);
+        BINDParseTE(to, Parser_kind_expr(parser));
+        TypeExpr type_expr = TypeExpr_arrow(from, to, peek.span);
+        from = Arena_put(type_expr);
+    }
+
+    return ParseResult_success_type_expr_index(from);
+}
+
 ParseResult Parser_type_expr(Parser *parser) {
     Token token = Parser_peek_token(parser).as.token;
     switch (token.kind) {
@@ -34,8 +63,10 @@ ParseResult Parser_type_expr(Parser *parser) {
 ParseResult Parser_finish_type_lambda(Parser *parser) {
     Parser_advance_token(parser);
     BINDParseT(variable, Parser_expect_kind(parser, TOKEN_IDENTIFIER));
+    DOParse(Parser_expect_kind(parser, TOKEN_COLON));
+    BINDParse(kind_expr, Parser_kind_expr(parser));
     BINDParse(type_expr, Parser_type_expr(parser));
-    TypeExpr lambda = TypeExpr_lambda(variable.as.lexeme_id, type_expr, variable.span);
+    TypeExpr lambda = TypeExpr_lambda(variable.as.lexeme_id, kind_expr, type_expr, variable.span);
     TypeExprIndex index = Arena_put(lambda);
 
     return ParseResult_success_type_expr_index(index);

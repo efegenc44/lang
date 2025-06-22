@@ -38,11 +38,12 @@ TypeExpr TypeExpr_product(StringArray names, OffsetArray type_exprs, Span span) 
     };
 }
 
-TypeExpr TypeExpr_lambda(InternId variable, TypeExprIndex expr, Span span) {
+TypeExpr TypeExpr_lambda(InternId variable, TypeExprIndex kind, TypeExprIndex expr, Span span) {
     return (TypeExpr) {
         .kind = TYPE_EXPR_LAMBDA,
         .as.type_lambda = {
             .variable = variable,
+            .kind = kind,
             .expr = expr
         },
         .sign_span = span
@@ -56,6 +57,13 @@ TypeExpr TypeExpr_application(TypeExprIndex function, TypeExprIndex argument, Sp
             .function = function,
             .argument = argument
         },
+        .sign_span = span
+    };
+}
+
+TypeExpr TypeExpr_kind(Span span) {
+    return (TypeExpr) {
+        .kind = TYPE_EXPR_KIND,
         .sign_span = span
     };
 }
@@ -119,6 +127,9 @@ bool TypeExpr_eq(TypeExpr *lhs, TypeExpr *rhs) {
             return TypeExpr_eq(Arena_get(TypeExpr, lappl->function), Arena_get(TypeExpr, rappl->function))
                 && TypeExpr_eq(Arena_get(TypeExpr, lappl->argument), Arena_get(TypeExpr, rappl->argument));
         } break;
+        case TYPE_EXPR_KIND: {
+            return rhs->kind == TYPE_EXPR_KIND;
+        } break;
     }
     assert(0);
 }
@@ -168,6 +179,9 @@ void TypeExpr_display(TypeExpr *type_expr, size_t depth) {
             TypeExpr_display(function, depth + 1);
             TypeExpr *argument = Arena_get(TypeExpr, type_expr->as.type_applicaton.argument);
             TypeExpr_display(argument, depth + 1);
+            break;
+        case TYPE_EXPR_KIND:
+            printf("*");
             break;
     }
 }

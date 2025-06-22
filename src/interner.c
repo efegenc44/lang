@@ -48,6 +48,17 @@ StringArray StringArray_new() {
     };
 }
 
+StringArray StringArray_clone(StringArray *array) {
+    StringArray cloned = (StringArray) {
+        .strings = malloc(array->length * sizeof(InternId)),
+        .capacity = array->capacity,
+        .length = array->length
+    };
+
+    cloned.strings = memcpy(cloned.strings, array->strings, array->length * sizeof(InternId));
+    return cloned;
+}
+
 void StringArray_free(StringArray *array) {
     free(array->strings);
 }

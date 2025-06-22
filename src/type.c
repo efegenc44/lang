@@ -69,25 +69,36 @@ Type Type_arrow(Offset input, Offset output) {
     };
 }
 
-Type Type_forall(InternId variable, Offset body_expr, TypeArray closure) {
+Type Type_forall(InternId variable, Offset body_expr, Offset kind, TypeArray closure) {
     return (Type) {
         .kind = TYPE_FORALL,
         .as.forall = {
             .variable = variable,
             .body_expr = body_expr,
+            .kind = kind,
             .closure = closure
         }
     };
 }
 
-Type Type_kind(InternId kind) {
+Type Type_kind() {
     return (Type) {
         .kind = TYPE_KIND,
-        .as.kind = kind
     };
 }
 
-bool Type_eq(Type *lhs, Type *rhs) {
+Type Type_var(StringArray symbols, Offset kind) {
+    return (Type) {
+        .kind = TYPE_VAR,
+        .as.type_var = {
+            .symbols = symbols,
+            .kind = kind
+        }
+    };
+}
+
+bool Type_eq(Type *lhs, Type *rhs)
+{
     switch (lhs->kind) {
         case TYPE_ISIZE:
             return rhs->kind == TYPE_ISIZE;
@@ -136,8 +147,19 @@ bool Type_eq(Type *lhs, Type *rhs) {
             return TypeExpr_eq(lhs_expr, rhs_expr);
         }
         case TYPE_KIND: {
-            if (rhs->kind != TYPE_KIND) return false;
-            return lhs->as.kind == rhs->as.kind;
+            return rhs->kind == TYPE_KIND;
+        }
+        case TYPE_VAR: {
+            if (rhs->kind != TYPE_VAR) return false;
+            if (rhs->as.type_var.symbols.length != lhs->as.type_var.symbols.length) return false;
+
+            for (size_t i = 0; i < lhs->as.type_var.symbols.length; i++) {
+                if (lhs->as.type_var.symbols.strings[i] != rhs->as.type_var.symbols.strings[i]) {
+                    return false;
+                }
+            }
+
+            return Type_eq(Arena_get(Type, lhs->as.forall.kind), Arena_get(Type, rhs->as.forall.kind));
         }
     }
     assert(0);
@@ -176,7 +198,10 @@ void Type_display(Type *type) {
             TypeExpr_display(Arena_get(TypeExpr, type->as.forall.body_expr), 0);
             break;
         case TYPE_KIND:
-            printf("<%s>", Interner_get(type->as.kind));
+            printf("*");
+            break;
+        case TYPE_VAR:
+            // printf("<%s>", Interner_get(type->as.type_var.var));
             break;
     }
 }

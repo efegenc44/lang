@@ -73,6 +73,7 @@ TypeCheckResult TypeChecker_decls(TypeChecker *checker, OffsetArray *decls) {
     return TypeCheckResult_success();
 }
 
+// TODO: expect only concerete types in type expressions
 TypeCheckResult TypeChecker_eval(TypeChecker *checker, Offset type_expr_index) {
     TypeExpr *texpr = Arena_get(TypeExpr, type_expr_index);
     switch (texpr->kind) {
@@ -114,29 +115,59 @@ TypeCheckResult TypeChecker_eval(TypeChecker *checker, Offset type_expr_index) {
             return TypeCheckResult_success_type(Type_product(names, types));
         case TYPE_EXPR_LAMBDA:
             // TODO: memory leak
-            Type forall_type = Type_forall(texpr->as.type_lambda.variable, texpr->as.type_lambda.expr, TypeArray_clone(&checker->locals));
+            BINDTypeCheck(kind, TypeChecker_eval(checker, texpr->as.type_lambda.kind));
+            Type forall_type = Type_forall(
+                texpr->as.type_lambda.variable,
+                // Maybe eval here (kind check)
+                texpr->as.type_lambda.expr,
+                Arena_put(kind),
+                TypeArray_clone(&checker->locals)
+            );
             return TypeCheckResult_success_type(forall_type);
         case TYPE_EXPR_APPLICATION:
             TypeApplication *application = &texpr->as.type_applicaton;
             BINDTypeCheck(function, TypeChecker_eval(checker, application->function));
-            if (function.kind != TYPE_FORALL) {
-                return TypeCheckResult_error_umk(texpr->sign_span);
+
+            switch (function.kind) {
+                case TYPE_FORALL: {
+                    BINDTypeCheck(argument, TypeChecker_eval(checker, application->argument));
+                    for (size_t i = 0; i < function.as.forall.closure.length; i++) {
+                        TypeArray_append(&checker->locals, function.as.forall.closure.types[i]);
+                    }
+                    TypeArray_append(&checker->locals, argument);
+
+                        BINDTypeCheck(result, TypeChecker_eval(checker, function.as.forall.body_expr));
+
+                    TypeArray_pop(&checker->locals);
+                    for (size_t i = 0; i < function.as.forall.closure.length; i++) {
+                        TypeArray_pop(&checker->locals);
+                    }
+
+                    return TypeCheckResult_success_type(result);
+                }
+                case TYPE_VAR: {
+                    BINDTypeCheck(argument, TypeChecker_eval(checker, application->argument));
+                    assert(argument.kind == TYPE_VAR);
+                    // TODO Error handling
+                    Type *kind = Arena_get(Type, function.as.type_var.kind);
+                    assert(kind->kind == TYPE_ARROW);
+
+                    assert(Type_eq(Arena_get(Type, argument.as.type_var.kind), Arena_get(Type, kind->as.function.input)));
+
+                    StringArray cloned = StringArray_clone(&function.as.type_var.symbols);
+                    for (size_t i = 0; i < argument.as.type_var.symbols.length; i++) {
+                        StringArray_append(&cloned, argument.as.type_var.symbols.strings[i]);
+                    }
+
+                    return TypeCheckResult_success_type(Type_var(cloned, kind->as.function.output));
+                }
+                default: {
+                    return TypeCheckResult_error_umk(texpr->sign_span);
+                }
             }
 
-            BINDTypeCheck(argument, TypeChecker_eval(checker, application->argument));
-            for (size_t i = 0; i < function.as.forall.closure.length; i++) {
-                TypeArray_append(&checker->locals, function.as.forall.closure.types[i]);
-            }
-            TypeArray_append(&checker->locals, argument);
-
-                BINDTypeCheck(result, TypeChecker_eval(checker, function.as.forall.body_expr));
-
-            TypeArray_pop(&checker->locals);
-            for (size_t i = 0; i < function.as.forall.closure.length; i++) {
-                TypeArray_pop(&checker->locals);
-            }
-
-            return TypeCheckResult_success_type(result);
+        case TYPE_EXPR_KIND:
+            return TypeCheckResult_success_type(Type_kind(0));
     }
     assert(0);
 }
@@ -268,7 +299,11 @@ TypeCheckResult TypeChecker_check(TypeChecker *checker, Offset expr_index, Type 
                             TypeArray_append(&checker->locals, expected.as.forall.closure.types[i]);
                         }
 
-                        TypeArray_append(&checker->locals, Type_kind(expected.as.forall.variable));
+                        // TODO: Memory leak
+                        StringArray symbols = StringArray_new();
+                        StringArray_append(&symbols, expected.as.forall.variable);
+                        Type tv = Type_var(symbols, expected.as.forall.kind);
+                        TypeArray_append(&checker->locals, tv);
                             BINDTypeCheck(res, TypeChecker_eval(checker, expected.as.forall.body_expr));
                             expected = res;
                         TypeArray_pop(&checker->locals);

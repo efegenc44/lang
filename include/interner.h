@@ -29,6 +29,7 @@ InternId Interner_register(char *string);
 char *Interner_get(InternId id);
 
 StringArray StringArray_new();
+StringArray StringArray_clone(StringArray *array);
 void StringArray_free(StringArray *array);
 void StringArray_append(StringArray *array, InternId string);
 InternId StringArray_pop(StringArray *array);

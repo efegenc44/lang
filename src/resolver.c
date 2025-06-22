@@ -113,6 +113,8 @@ ResolveResult Resolver_type_expr(Resolver *resolver, OffsetArray *decls, TypeExp
             DOResolve(Resolver_type_expr(resolver, decls, application->function));
             DOResolve(Resolver_type_expr(resolver, decls, application->argument));
             break;
+        case TYPE_EXPR_KIND:
+            break;
     };
 
     return ResolveResult_success();
